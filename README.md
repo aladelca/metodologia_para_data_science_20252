@@ -25,7 +25,8 @@ Este repositorio está enfocado únicamente en la documentación y guías metodo
 ├── GUIA_TRABAJO_FINAL.md    # Guía para el desarrollo del trabajo final
 ├── PYTHON_INSTALLATION.md  # Instrucciones de instalación de Python
 ├── instrucciones_git.md     # Guía básica de Git
-└── VALIDATIONS.md          # Estándares de calidad y validaciones
+├── VALIDATIONS.md          # Estándares de calidad y validaciones
+└── CRISP-DM.md            # Documentación completa de la metodología CRISP-DM
 ```
 
 ## Guías Incluidas
@@ -61,6 +62,14 @@ Estándares de calidad de código:
 - Verificación de tipos (mypy)
 - Documentación (docstrings)
 - Tests y cobertura
+
+### 🔄 [Metodología CRISP-DM](CRISP-DM.md)
+Documentación completa de la metodología CRISP-DM:
+- Las 6 fases del proceso
+- Actividades y entregables por fase
+- Ejemplos prácticos y código
+- Aplicación en proyectos académicos
+- Herramientas recomendadas
 
 ## Configuración de Validaciones
 
@@ -103,7 +112,7 @@ Los proyectos deben seguir la metodología CRISP-DM:
 5. **Evaluación**
 6. **Implementación**
 
-Consulta la [Guía del Trabajo Final](GUIA_TRABAJO_FINAL.md) para más detalles.
+Consulta la [Documentación Completa de CRISP-DM](CRISP-DM.md) para más detalles sobre cada fase, actividades, entregables y ejemplos prácticos.
 
 ## Convenciones de Código
 
