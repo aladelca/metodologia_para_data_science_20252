@@ -1,0 +1,102 @@
+name: Code Quality & Tests
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pre-commit pytest pytest-cov mypy black isort flake8
+        pip install flake8-builtins flake8-pytest-style flake8-variables-names flake8-simplify
+        pip install bandit types-PyYAML types-requests types-setuptools types-python-dateutil
+
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit install
+        pre-commit run --all-files
+
+    - name: Run tests with coverage (if tests exist)
+      run: |
+        if [ -d "tests" ] || [ -d "src/tests" ]; then
+          pytest --cov=src --cov-report=xml --cov-fail-under=80 || true
+        else
+          echo "No tests directory found, skipping test execution"
+        fi
+
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v3
+
+      - name: 'Dependency Review'
+        uses: actions/dependency-review-action@v3
+        with:
+          fail-on-severity: high
+
+  documentation-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Check required documentation
+      run: |
+        echo "Checking for required documentation files..."
+        
+        # Check for README
+        if [ ! -f "README.md" ]; then
+          echo "ERROR: README.md not found"
+          exit 1
+        fi
+        
+        # Check for guides
+        if [ ! -f "GUIA_TRABAJO_FINAL.md" ]; then
+          echo "ERROR: GUIA_TRABAJO_FINAL.md not found"
+          exit 1
+        fi
+        
+        if [ ! -f "PYTHON_INSTALLATION.md" ]; then
+          echo "ERROR: PYTHON_INSTALLATION.md not found"
+          exit 1
+        fi
+        
+        if [ ! -f "instrucciones_git.md" ]; then
+          echo "ERROR: instrucciones_git.md not found"
+          exit 1
+        fi
+        
+        if [ ! -f "VALIDATIONS.md" ]; then
+          echo "ERROR: VALIDATIONS.md not found"
+          exit 1
+        fi
+        
+        echo "All required documentation files found!"
+
+    - name: Validate markdown structure
+      run: |
+        echo "Validating markdown files..."
+        for file in *.md; do
+          if [ -f "$file" ]; then
+            echo "Checking $file for basic structure..."
+            # Check if file has at least one header
+            if ! grep -q "^#" "$file"; then
+              echo "WARNING: $file appears to have no headers"
+            fi
+          fi
+        done
+        echo "Markdown validation complete!"

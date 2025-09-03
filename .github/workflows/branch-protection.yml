@@ -1,0 +1,75 @@
+name: Branch Protection and PR Review Requirements
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+
+jobs:
+  check-branch-protection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if push is to main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if [ "${{ github.actor }}" != "aladelca" ]; then
+            echo "❌ Only aladelca can push directly to main"
+            exit 1
+          fi
+
+  enforce-review-requirements:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check PR requirements
+        run: |
+          echo "🔍 Checking PR requirements..."
+          
+          # Check if PR has a proper title
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [ ${#PR_TITLE} -lt 10 ]; then
+            echo "❌ PR title must be at least 10 characters long"
+            exit 1
+          fi
+          
+          # Check if PR has a description
+          PR_BODY="${{ github.event.pull_request.body }}"
+          if [ ${#PR_BODY} -lt 20 ]; then
+            echo "❌ PR must have a meaningful description (at least 20 characters)"
+            exit 1
+          fi
+          
+          echo "✅ PR requirements met"
+
+      - name: Check branch naming convention
+        run: |
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          echo "🔍 Checking branch name: $BRANCH_NAME"
+          
+          # Check if branch follows naming convention
+          if [[ $BRANCH_NAME =~ ^(feature|hotfix|docs)/[a-z]{2,3}/[a-z0-9-]+$ ]]; then
+            echo "✅ Branch name follows convention"
+          else
+            echo "❌ Branch name must follow pattern: feature/[iniciales]/[descripcion]"
+            echo "   Example: feature/aa/nueva-funcionalidad"
+            exit 1
+          fi
+
+      - name: Check for instructor approval
+        run: |
+          # Get PR review states
+          REVIEWS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews")
+
+          # Check if aladelca has approved
+          APPROVED=$(echo "$REVIEWS" | jq -r '.[] | select(.user.login == "aladelca" and .state == "APPROVED")')
+
+          if [ -z "$APPROVED" ]; then
+            echo "⏳ PR is waiting for approval from instructor (@aladelca)"
+            echo "ℹ️  This is normal - all PRs must be reviewed by the instructor before merging"
+            # Don't exit with error as this is expected behavior
+          else
+            echo "✅ PR has been approved by instructor"
+          fi
