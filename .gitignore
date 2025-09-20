@@ -198,3 +198,7 @@ models/*.pkl
 models/*.joblib
 logs/*.log
 !logs/.gitkeep
+
+# Data files
+src/preprocessing/data/*
+src/preprocessing/data/*
