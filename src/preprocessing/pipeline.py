@@ -15,5 +15,5 @@ def generate_gold_data():
     return "success"
 
 generate_raw_data("SPY","max")
-generate_gold_data();
+generate_gold_data()
     
