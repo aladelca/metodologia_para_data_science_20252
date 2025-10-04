@@ -450,3 +450,32 @@ def calculate_metrics(true_values, predicted_values):
     )
 
     return {"MAE": mae, "MSE": mse, "RMSE": rmse, "MAPE": mape}
+
+
+def handle_timezone_compatibility(date_string, data_index):
+    """
+    Handle timezone compatibility between date strings and data index
+
+    Args:
+        date_string (str): Date string to convert
+        data_index (pd.DatetimeIndex): Data index to match timezone with
+
+    Returns:
+        pd.Timestamp: Timezone-compatible timestamp
+    """
+    date_dt = pd.to_datetime(date_string)
+
+    # Handle timezone-aware data index
+    if data_index.tz is not None:
+        # If data index is timezone-aware, make the date timezone-aware too
+        if date_dt.tz is None:
+            date_dt = date_dt.tz_localize(data_index.tz)
+        else:
+            # Convert to the same timezone as data index
+            date_dt = date_dt.tz_convert(data_index.tz)
+    else:
+        # If data index is timezone-naive, ensure date is also timezone-naive
+        if date_dt.tz is not None:
+            date_dt = date_dt.tz_localize(None)
+
+    return date_dt

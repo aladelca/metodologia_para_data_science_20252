@@ -254,7 +254,7 @@ class TimeSeriesTrainer:
         model.fit(
             train_features,
             train_target,
-            eval_set=eval_set,
+            # eval_set=eval_set,
             use_best_model=bool(eval_set),
         )
 

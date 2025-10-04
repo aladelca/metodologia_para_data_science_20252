@@ -12,6 +12,7 @@ from utils import (  # noqa: E402
     crear_features_completas,
     crear_variable_exogena_segura,
     create_sequences,
+    handle_timezone_compatibility,
     preparar_datos_prophet,
     verificar_no_data_leakage,
 )
@@ -134,8 +135,9 @@ class TimeSeriesPreprocessor:
         if isinstance(series, pd.DataFrame):
             series = series["Close"]
 
-        # Filter by date
-        filtered_series = series[series.index >= start_date]
+        # Filter by date with timezone handling
+        start_dt = handle_timezone_compatibility(start_date, series.index)
+        filtered_series = series[series.index >= start_dt]
 
         # Check stationarity
         is_stationary = self.check_stationarity(
@@ -208,26 +210,60 @@ class TimeSeriesPreprocessor:
 
         features_df = self.create_features(target_series, target_col)
 
-        # Split data
-        train_data = features_df.loc[train_start:train_end]
-        test_data = features_df.loc[test_start:]
+        # Split data with timezone handling
+        train_start_dt = handle_timezone_compatibility(
+            train_start, features_df.index
+        )
+        train_end_dt = handle_timezone_compatibility(
+            train_end, features_df.index
+        )
+        test_start_dt = (
+            handle_timezone_compatibility(test_start, features_df.index)
+            if test_start
+            else None
+        )
 
-        # Remove rows with NaN values
-        train_data = train_data.dropna()
-        test_data = test_data.dropna()
+        train_data = features_df.loc[train_start_dt:train_end_dt]
+        test_data = (
+            features_df.loc[test_start_dt:]
+            if test_start_dt
+            else pd.DataFrame()
+        )
 
-        # Separate features and target
+        # Separate features and target before removing NaN
         feature_cols = [
             col
-            for col in train_data.columns
+            for col in features_df.columns
             if col not in ["target", "target_diff"]
         ]
 
+        # Use original target instead of differenced target for ML models
+        # The differenced target often causes issues with empty data
         train_features = train_data[feature_cols]
-        train_target = train_data["target_diff"]  # Use differenced target
+        train_target = train_data["target"]  # Use original target
 
-        test_features = test_data[feature_cols]
-        test_target = test_data["target_diff"]
+        test_features = (
+            test_data[feature_cols] if not test_data.empty else pd.DataFrame()
+        )
+        test_target = (
+            test_data["target"]
+            if not test_data.empty
+            else pd.Series(dtype=float)
+        )
+
+        # Remove rows with NaN values in features and target
+        valid_train_mask = ~(
+            train_features.isna().any(axis=1) | train_target.isna()
+        )
+        train_features = train_features[valid_train_mask]
+        train_target = train_target[valid_train_mask]
+
+        if not test_features.empty:
+            valid_test_mask = ~(
+                test_features.isna().any(axis=1) | test_target.isna()
+            )
+            test_features = test_features[valid_test_mask]
+            test_target = test_target[valid_test_mask]
 
         return train_features, train_target, test_features, test_target
 
