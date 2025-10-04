@@ -71,27 +71,64 @@ Documentación completa de la metodología CRISP-DM:
 - Aplicación en proyectos académicos
 - Herramientas recomendadas
 
-## Configuración de Validaciones
+## ⚠️ Configuración Obligatoria de Entorno de Desarrollo
 
-Para configurar las validaciones de calidad de código en tu proyecto:
+**IMPORTANTE**: Antes de realizar cualquier commit, debes configurar pre-commit:
+
+### Configuración Automática (Recomendado)
+
+```bash
+# Ejecutar el script de configuración
+./setup-dev.sh
+```
+
+Este script:
+- ✅ Instala pre-commit si no está presente
+- ✅ Configura los hooks de git automáticamente
+- ✅ Verifica que todo esté configurado correctamente
+
+### Configuración Manual
+
+Si prefieres configurar manualmente:
 
 1. **Instalar pre-commit**:
    ```bash
    pip install pre-commit
    ```
 
-2. **Configurar hooks** (crear `.pre-commit-config.yaml` en tu proyecto):
+2. **Instalar hooks de git**:
    ```bash
    pre-commit install
    ```
 
-3. **Ejecutar validaciones**:
+3. **Verificar instalación**:
+   ```bash
+   # Debe existir el archivo .git/hooks/pre-commit
+   ls -la .git/hooks/pre-commit
+   ```
+
+4. **Ejecutar validaciones manualmente**:
    ```bash
    # Ejecutar en todos los archivos
    pre-commit run --all-files
-   
-   # Se ejecutará automáticamente en cada commit
    ```
+
+### ¿Qué hace pre-commit?
+
+Los hooks de pre-commit se ejecutan **automáticamente antes de cada commit** y verifican:
+
+- 🔍 Espacios en blanco al final de líneas
+- 📝 Archivos terminan con nueva línea
+- ✅ YAML y JSON válidos
+- 🚫 Archivos grandes
+- 🔐 Claves privadas accidentales
+- 🎨 Formateo con Black
+- 📋 Imports ordenados con isort
+- 🐛 Errores con Flake8
+- 🔒 Problemas de seguridad con Bandit
+- 📊 Tipos con mypy
+
+**Nota**: No se permite hacer commits sin pasar las validaciones. Si necesitas omitirlas temporalmente (NO RECOMENDADO), usa `git commit --no-verify`.
 
 ## GitHub Actions
 

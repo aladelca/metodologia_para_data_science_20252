@@ -4,3 +4,7 @@ strict = true
 [[tool.mypy.overrides]]
 module = "yfinance"
 ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "test"]
+skips = ["B101"]  # Skip assert_used check (común en tests)
