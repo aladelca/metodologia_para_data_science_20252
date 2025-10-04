@@ -26,28 +26,28 @@ jobs:
       - name: Check PR requirements
         run: |
           echo "🔍 Checking PR requirements..."
-          
+
           # Check if PR has a proper title
           PR_TITLE="${{ github.event.pull_request.title }}"
           if [ ${#PR_TITLE} -lt 10 ]; then
             echo "❌ PR title must be at least 10 characters long"
             exit 1
           fi
-          
+
           # Check if PR has a description
           PR_BODY="${{ github.event.pull_request.body }}"
           if [ ${#PR_BODY} -lt 20 ]; then
             echo "❌ PR must have a meaningful description (at least 20 characters)"
             exit 1
           fi
-          
+
           echo "✅ PR requirements met"
 
       - name: Check branch naming convention
         run: |
           BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
           echo "🔍 Checking branch name: $BRANCH_NAME"
-          
+
           # Check if branch follows naming convention
           if [[ $BRANCH_NAME =~ ^(feature|hotfix|docs)/[a-z]{2,3}/[a-z0-9-]+$ ]]; then
             echo "✅ Branch name follows convention"

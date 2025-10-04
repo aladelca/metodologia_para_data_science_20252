@@ -1,27 +1,28 @@
-import pandas as pd
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
-import pickle
-import joblib
-import warnings
-from prophet import Prophet
-from statsmodels.tsa.arima.model import ARIMA
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from catboost import CatBoostRegressor
-from lightgbm import LGBMRegressor
-import sys
 import os
-from typing import Dict, Any, Tuple, Optional
+import sys
+from typing import Any  # noqa: E402
 
 # Add src directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from utils import auto_arima_manual, LSTMModel, calculate_metrics
-from preprocessing.preprocess import TimeSeriesPreprocessor
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+import pickle  # noqa: E402  # nosec B403
+import warnings  # noqa: E402
 
-warnings.filterwarnings('ignore')
+import joblib  # noqa: E402
+import pandas as pd  # noqa: E402
+import torch  # noqa: E402
+import torch.nn as nn  # noqa: E402
+import torch.optim as optim  # noqa: E402
+from catboost import CatBoostRegressor  # noqa: E402
+from lightgbm import LGBMRegressor  # noqa: E402
+from prophet import Prophet  # noqa: E402
+from statsmodels.tsa.arima.model import ARIMA  # noqa: E402
+from statsmodels.tsa.statespace.sarimax import SARIMAX  # noqa: E402
+from torch.utils.data import DataLoader, TensorDataset  # noqa: E402
+
+from preprocessing.preprocess import TimeSeriesPreprocessor  # noqa: E402
+from utils import LSTMModel, auto_arima_manual  # noqa: E402
+
+warnings.filterwarnings("ignore")
 
 
 class TimeSeriesTrainer:
@@ -39,18 +40,18 @@ class TimeSeriesTrainer:
         self.training_results = {}
 
     def train_arima(
-            self, 
-            data : pd.Series, 
-            max_p : int =5 , 
-            max_d : int =2 , 
-            max_q : int =5 , 
-            p = 1,
-            d = 2,
-            q = 5,
-            use_autorima = False,
-            criterio='aic', 
-            save_path=None
-            ):
+        self,
+        data: pd.Series,
+        max_p: int = 5,
+        max_d: int = 2,
+        max_q: int = 5,
+        param_p: int = 1,
+        param_d: int = 2,
+        param_q: int = 5,
+        use_autorima: bool = False,
+        criterio: str = "aic",
+        save_path: str = None,
+    ) -> tuple[Any, tuple[int, int, int], Any]:
         """
         Train ARIMA model with automatic parameter selection
 
@@ -71,33 +72,37 @@ class TimeSeriesTrainer:
         if use_autorima:
             model, best_order, results_df = auto_arima_manual(
                 data, max_p=max_p, max_d=max_d, max_q=max_q, criterio=criterio
-                
             )
-            self.training_results['arima'] = {
-            'best_order': best_order,
-            'aic': model.aic,
-            'bic': model.bic,
-            'results_df': results_df
+            self.training_results["arima"] = {
+                "best_order": best_order,
+                "aic": model.aic,
+                "bic": model.bic,
+                "results_df": results_df,
             }
-        else: 
-            model = ARIMA(data, order=(p, d, q))
+        else:
+            model = ARIMA(data, order=(param_p, param_d, param_q))
             results_df = None
-            best_order = (p,d,q)
+            best_order = (param_p, param_d, param_q)
         # Store model
-        self.models['arima'] = model
-        
+        self.models["arima"] = model
 
         # Save model if path provided
         if save_path:
-            with open(save_path, 'wb') as f:
+            with open(save_path, "wb") as f:
                 pickle.dump(model, f)
             print(f"ARIMA model saved to {save_path}")
 
         print(f"ARIMA training completed. Best order: {best_order}")
         return model, best_order, results_df
 
-    def train_sarimax(self, data, exog_data, order=(1, 1, 1), seasonal_order=(1, 1, 1, 12),
-                     save_path=None):
+    def train_sarimax(
+        self,
+        data,
+        exog_data,
+        order=(1, 1, 1),
+        seasonal_order=(1, 1, 1, 12),
+        save_path=None,
+    ):
         """
         Train SARIMAX model with exogenous variables
 
@@ -124,31 +129,31 @@ class TimeSeriesTrainer:
             order=order,
             seasonal_order=seasonal_order,
             enforce_stationarity=False,
-            enforce_invertibility=False
+            enforce_invertibility=False,
         )
 
         fitted_model = model.fit(disp=False)
 
         # Store model
-        self.models['sarimax'] = fitted_model
-        self.training_results['sarimax'] = {
-            'order': order,
-            'seasonal_order': seasonal_order,
-            'aic': fitted_model.aic,
-            'bic': fitted_model.bic,
-            'exog_columns': list(exog_data.columns)
+        self.models["sarimax"] = fitted_model
+        self.training_results["sarimax"] = {
+            "order": order,
+            "seasonal_order": seasonal_order,
+            "aic": fitted_model.aic,
+            "bic": fitted_model.bic,
+            "exog_columns": list(exog_data.columns),
         }
 
         # Save model if path provided
         if save_path:
-            with open(save_path, 'wb') as f:
+            with open(save_path, "wb") as f:
                 pickle.dump(fitted_model, f)
             print(f"SARIMAX model saved to {save_path}")
 
         print("SARIMAX training completed")
         return fitted_model
 
-    def train_prophet(self, df_train, exog_vars=None, save_path=None, **prophet_kwargs):
+    def train_prophet(self, df_train, exog_vars, save_path, **prophet_kwargs):
         """
         Train Prophet model
 
@@ -165,10 +170,10 @@ class TimeSeriesTrainer:
 
         # Default Prophet parameters
         default_params = {
-            'daily_seasonality': False,
-            'weekly_seasonality': True,
-            'yearly_seasonality': True,
-            'changepoint_prior_scale': 0.05
+            "daily_seasonality": False,
+            "weekly_seasonality": True,
+            "yearly_seasonality": True,
+            "changepoint_prior_scale": 0.05,
         }
         default_params.update(prophet_kwargs)
 
@@ -185,24 +190,33 @@ class TimeSeriesTrainer:
         model.fit(df_train)
 
         # Store model
-        self.models['prophet'] = model
-        self.training_results['prophet'] = {
-            'exog_vars': exog_vars or [],
-            'parameters': default_params,
-            'components': list(model.params.keys()) if hasattr(model, 'params') else []
+        self.models["prophet"] = model
+        self.training_results["prophet"] = {
+            "exog_vars": exog_vars or [],
+            "parameters": default_params,
+            "components": (
+                list(model.params.keys()) if hasattr(model, "params") else []
+            ),
         }
 
         # Save model if path provided
         if save_path:
-            with open(save_path, 'wb') as f:
+            with open(save_path, "wb") as f:
                 pickle.dump(model, f)
             print(f"Prophet model saved to {save_path}")
 
         print("Prophet training completed")
         return model
 
-    def train_catboost(self, train_features, train_target, test_features=None, test_target=None,
-                      save_path=None, **catboost_kwargs):
+    def train_catboost(
+        self,
+        train_features,
+        train_target,
+        test_features=None,
+        test_target=None,
+        save_path=None,
+        **catboost_kwargs,
+    ):
         """
         Train CatBoost model
 
@@ -221,10 +235,10 @@ class TimeSeriesTrainer:
 
         # Default parameters
         default_params = {
-            'random_state': 123,
-            'iterations': 1000,
-            'verbose': False,
-            'eval_metric': 'RMSE'
+            "random_state": 123,
+            "iterations": 1000,
+            "verbose": False,
+            "eval_metric": "RMSE",
         }
         default_params.update(catboost_kwargs)
 
@@ -241,21 +255,25 @@ class TimeSeriesTrainer:
             train_features,
             train_target,
             eval_set=eval_set,
-            use_best_model=True if eval_set else False
+            use_best_model=bool(eval_set),
         )
 
         # Calculate feature importance
-        feature_importance = pd.DataFrame({
-            'feature': train_features.columns,
-            'importance': model.feature_importances_
-        }).sort_values('importance', ascending=False)
+        feature_importance = pd.DataFrame(
+            {
+                "feature": train_features.columns,
+                "importance": model.feature_importances_,
+            }
+        ).sort_values("importance", ascending=False)
 
         # Store model
-        self.models['catboost'] = model
-        self.training_results['catboost'] = {
-            'parameters': default_params,
-            'feature_importance': feature_importance,
-            'best_iteration': getattr(model, 'best_iteration_', default_params['iterations'])
+        self.models["catboost"] = model
+        self.training_results["catboost"] = {
+            "parameters": default_params,
+            "feature_importance": feature_importance,
+            "best_iteration": getattr(
+                model, "best_iteration_", default_params["iterations"]
+            ),
         }
 
         # Save model if path provided
@@ -266,8 +284,15 @@ class TimeSeriesTrainer:
         print("CatBoost training completed")
         return model
 
-    def train_lightgbm(self, train_features, train_target, test_features=None, test_target=None,
-                      save_path=None, **lgbm_kwargs):
+    def train_lightgbm(
+        self,
+        train_features,
+        train_target,
+        test_features=None,
+        test_target=None,
+        save_path=None,
+        **lgbm_kwargs,
+    ):
         """
         Train LightGBM model
 
@@ -286,10 +311,10 @@ class TimeSeriesTrainer:
 
         # Default parameters
         default_params = {
-            'random_state': 123,
-            'n_estimators': 1000,
-            'verbose': -1,
-            'metric': 'rmse'
+            "random_state": 123,
+            "n_estimators": 1000,
+            "verbose": -1,
+            "metric": "rmse",
         }
         default_params.update(lgbm_kwargs)
 
@@ -299,27 +324,33 @@ class TimeSeriesTrainer:
         # Prepare evaluation set if test data provided
         eval_set = None
         if test_features is not None and test_target is not None:
-            eval_set = [(test_features.astype(float), test_target.astype(float))]
+            eval_set = [
+                (test_features.astype(float), test_target.astype(float))
+            ]
 
         # Train model
         model.fit(
             train_features.astype(float),
             train_target.astype(float),
-            eval_set=eval_set
+            eval_set=eval_set,
         )
 
         # Calculate feature importance
-        feature_importance = pd.DataFrame({
-            'feature': train_features.columns,
-            'importance': model.feature_importances_
-        }).sort_values('importance', ascending=False)
+        feature_importance = pd.DataFrame(
+            {
+                "feature": train_features.columns,
+                "importance": model.feature_importances_,
+            }
+        ).sort_values("importance", ascending=False)
 
         # Store model
-        self.models['lightgbm'] = model
-        self.training_results['lightgbm'] = {
-            'parameters': default_params,
-            'feature_importance': feature_importance,
-            'best_iteration': getattr(model, 'best_iteration_', default_params['n_estimators'])
+        self.models["lightgbm"] = model
+        self.training_results["lightgbm"] = {
+            "parameters": default_params,
+            "feature_importance": feature_importance,
+            "best_iteration": getattr(
+                model, "best_iteration_", default_params["n_estimators"]
+            ),
         }
 
         # Save model if path provided
@@ -330,9 +361,22 @@ class TimeSeriesTrainer:
         print("LightGBM training completed")
         return model
 
-    def train_lstm(self, X_train, y_train, X_test=None, y_test=None, input_size=None,
-                  hidden_size=50, num_layers=2, num_epochs=100, batch_size=32,
-                  learning_rate=0.001, patience=10, save_path=None, **lstm_kwargs):
+    def train_lstm(
+        self,
+        X_train,
+        y_train,
+        X_test=None,
+        y_test=None,
+        input_size=None,
+        hidden_size=50,
+        num_layers=2,
+        num_epochs=100,
+        batch_size=32,
+        learning_rate=0.001,
+        patience=10,
+        save_path=None,
+        **lstm_kwargs,
+    ):
         """
         Train LSTM model
 
@@ -357,7 +401,7 @@ class TimeSeriesTrainer:
         print("Training LSTM model...")
 
         # Set device
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {device}")
 
         # Determine input size
@@ -370,29 +414,37 @@ class TimeSeriesTrainer:
             hidden_size=hidden_size,
             num_layers=num_layers,
             output_size=1,
-            **lstm_kwargs
+            **lstm_kwargs,
         ).to(device)
 
         # Loss function and optimizer
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=5
+            optimizer, mode="min", factor=0.5, patience=5
         )
 
         # Create data loaders
-        train_dataset = TensorDataset(torch.FloatTensor(X_train), torch.FloatTensor(y_train))
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_dataset = TensorDataset(
+            torch.FloatTensor(X_train), torch.FloatTensor(y_train)
+        )
+        train_loader = DataLoader(
+            train_dataset, batch_size=batch_size, shuffle=True
+        )
 
         test_loader = None
         if X_test is not None and y_test is not None:
-            test_dataset = TensorDataset(torch.FloatTensor(X_test), torch.FloatTensor(y_test))
-            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+            test_dataset = TensorDataset(
+                torch.FloatTensor(X_test), torch.FloatTensor(y_test)
+            )
+            test_loader = DataLoader(
+                test_dataset, batch_size=batch_size, shuffle=False
+            )
 
         # Training loop
         train_losses = []
         val_losses = []
-        best_val_loss = float('inf')
+        best_val_loss = float("inf")
         patience_counter = 0
 
         for epoch in range(num_epochs):
@@ -409,7 +461,9 @@ class TimeSeriesTrainer:
                 loss.backward()
 
                 # Gradient clipping
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), max_norm=1.0
+                )
 
                 optimizer.step()
                 epoch_train_loss += loss.item()
@@ -424,7 +478,8 @@ class TimeSeriesTrainer:
 
                 with torch.no_grad():
                     for batch_X, batch_y in test_loader:
-                        batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+                        batch_X = batch_X.to(device)
+                        batch_y = batch_y.to(device)
                         outputs = model(batch_X)
                         loss = criterion(outputs.squeeze(), batch_y)
                         epoch_val_loss += loss.item()
@@ -444,42 +499,50 @@ class TimeSeriesTrainer:
                     patience_counter += 1
 
                 if patience_counter >= patience:
-                    print(f"Early stopping at epoch {epoch+1}")
+                    print(f"Early stopping at epoch {epoch + 1}")
                     model.load_state_dict(best_model_state)
                     break
 
                 if (epoch + 1) % 10 == 0:
-                    print(f'Epoch [{epoch+1}/{num_epochs}], '
-                          f'Train Loss: {avg_train_loss:.4f}, '
-                          f'Val Loss: {avg_val_loss:.4f}')
+                    print(
+                        f"Epoch [{epoch + 1}/{num_epochs}], "
+                        f"Train Loss: {avg_train_loss: .4f}, "
+                        f"Val Loss: {avg_val_loss: .4f}"
+                    )
             else:
                 if (epoch + 1) % 10 == 0:
-                    print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}')
+                    print(
+                        f"Epoch [{epoch + 1}/{num_epochs}], "
+                        f"Train Loss: {avg_train_loss: .4f}"
+                    )
 
         # Store model
-        self.models['lstm'] = model
-        self.training_results['lstm'] = {
-            'input_size': input_size,
-            'hidden_size': hidden_size,
-            'num_layers': num_layers,
-            'num_epochs': epoch + 1,
-            'final_train_loss': train_losses[-1],
-            'final_val_loss': val_losses[-1] if val_losses else None,
-            'best_val_loss': best_val_loss if test_loader else None
+        self.models["lstm"] = model
+        self.training_results["lstm"] = {
+            "input_size": input_size,
+            "hidden_size": hidden_size,
+            "num_layers": num_layers,
+            "num_epochs": epoch + 1,
+            "final_train_loss": train_losses[-1],
+            "final_val_loss": val_losses[-1] if val_losses else None,
+            "best_val_loss": best_val_loss if test_loader else None,
         }
 
         # Save model if path provided
         if save_path:
-            torch.save({
-                'model_state_dict': model.state_dict(),
-                'model_config': {
-                    'input_size': input_size,
-                    'hidden_size': hidden_size,
-                    'num_layers': num_layers,
-                    'output_size': 1
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "model_config": {
+                        "input_size": input_size,
+                        "hidden_size": hidden_size,
+                        "num_layers": num_layers,
+                        "output_size": 1,
+                    },
+                    "training_results": self.training_results["lstm"],
                 },
-                'training_results': self.training_results['lstm']
-            }, save_path)
+                save_path,
+            )
             print(f"LSTM model saved to {save_path}")
 
         print("LSTM training completed")
@@ -514,7 +577,7 @@ class TimeSeriesTrainer:
         self.train_arima(
             arima_data,
             save_path=os.path.join(save_dir, "arima_model.pkl"),
-            **kwargs.get('arima', {})
+            **kwargs.get("arima", {}),
         )
 
         # 2. Prophet
@@ -524,38 +587,51 @@ class TimeSeriesTrainer:
             prophet_data,
             exog_vars=exog_vars,
             save_path=os.path.join(save_dir, "prophet_model.pkl"),
-            **kwargs.get('prophet', {})
+            **kwargs.get("prophet", {}),
         )
 
         # 3. Machine Learning models
         print("\n=== Preparing ML data ===")
-        train_X, train_y, test_X, test_y = self.preprocessor.prepare_ml_data(data)
+        train_X, train_y, test_X, test_y = self.preprocessor.prepare_ml_data(
+            data
+        )
 
         # CatBoost
         print("\n=== Training CatBoost ===")
         self.train_catboost(
-            train_X, train_y, test_X, test_y,
+            train_X,
+            train_y,
+            test_X,
+            test_y,
             save_path=os.path.join(save_dir, "catboost_model"),
-            **kwargs.get('catboost', {})
+            **kwargs.get("catboost", {}),
         )
 
         # LightGBM
         print("\n=== Training LightGBM ===")
         self.train_lightgbm(
-            train_X, train_y, test_X, test_y,
+            train_X,
+            train_y,
+            test_X,
+            test_y,
             save_path=os.path.join(save_dir, "lightgbm_model.pkl"),
-            **kwargs.get('lightgbm', {})
+            **kwargs.get("lightgbm", {}),
         )
 
         # 4. LSTM
         print("\n=== Preparing LSTM data ===")
-        X_train, X_test, y_train, y_test = self.preprocessor.prepare_lstm_data(data)
+        X_train, X_test, y_train, y_test = self.preprocessor.prepare_lstm_data(
+            data
+        )
 
         print("\n=== Training LSTM ===")
         self.train_lstm(
-            X_train, y_train, X_test, y_test,
+            X_train,
+            y_train,
+            X_test,
+            y_test,
             save_path=os.path.join(save_dir, "lstm_model.pth"),
-            **kwargs.get('lstm', {})
+            **kwargs.get("lstm", {}),
         )
 
         print("\n=== All models trained successfully ===")
@@ -570,27 +646,27 @@ class TimeSeriesTrainer:
         """
         summary = {}
         for model_name, results in self.training_results.items():
-            summary[model_name] = {
-                'trained': True,
-                'key_metrics': {}
-            }
+            summary[model_name] = {"trained": True, "key_metrics": {}}
 
-            if model_name in ['arima', 'sarimax']:
-                summary[model_name]['key_metrics'] = {
-                    'AIC': results.get('aic'),
-                    'BIC': results.get('bic')
+            if model_name in ["arima", "sarimax"]:
+                summary[model_name]["key_metrics"] = {
+                    "AIC": results.get("aic"),
+                    "BIC": results.get("bic"),
                 }
-            elif model_name == 'lstm':
-                summary[model_name]['key_metrics'] = {
-                    'final_train_loss': results.get('final_train_loss'),
-                    'final_val_loss': results.get('final_val_loss'),
-                    'best_val_loss': results.get('best_val_loss')
+            elif model_name == "lstm":
+                summary[model_name]["key_metrics"] = {
+                    "final_train_loss": results.get("final_train_loss"),
+                    "final_val_loss": results.get("final_val_loss"),
+                    "best_val_loss": results.get("best_val_loss"),
                 }
-            elif model_name in ['catboost', 'lightgbm']:
-                summary[model_name]['key_metrics'] = {
-                    'best_iteration': results.get('best_iteration'),
-                    'top_features': results.get('feature_importance', pd.DataFrame()).head(5).to_dict('records')
+            elif model_name in ["catboost", "lightgbm"]:
+                summary[model_name]["key_metrics"] = {
+                    "best_iteration": results.get("best_iteration"),
+                    "top_features": (
+                        results.get("feature_importance", pd.DataFrame())
+                        .head(5)
+                        .to_dict("records")
+                    ),
                 }
 
         return summary
-

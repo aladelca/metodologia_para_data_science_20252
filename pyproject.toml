@@ -5,6 +5,10 @@ strict = true
 module = "yfinance"
 ignore_missing_imports = true
 
+[tool.black]
+line-length = 79
+skip-string-normalization = true
+
 [tool.bandit]
 exclude_dirs = ["tests", "test"]
 skips = ["B101"]  # Skip assert_used check (común en tests)

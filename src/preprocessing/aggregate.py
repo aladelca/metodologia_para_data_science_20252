@@ -1,6 +1,7 @@
 import pandas as pd
 
-def calculate_monthly_returns(df : pd.DataFrame) -> pd.DataFrame:
+
+def calculate_monthly_returns(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calcula los retornos mensuales compuestos a partir
     de datos de precios diarios.
