@@ -80,8 +80,7 @@ class TimeSeriesTrainer:
                 "results_df": results_df,
             }
         else:
-            arima_model = ARIMA(data, order=(param_p, param_d, param_q))
-            model = arima_model.fit()  # Fit the model
+            model = ARIMA(data, order=(param_p, param_d, param_q)).fit()
             results_df = None
             best_order = (param_p, param_d, param_q)
         # Store model
