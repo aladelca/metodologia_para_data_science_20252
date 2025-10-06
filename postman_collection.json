@@ -1,0 +1,288 @@
+{
+  "info": {
+    "name": "Time Series Prediction API",
+    "description": "Collection para probar la API de predicción de series temporales",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8001",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        },
+        "description": "Verifica que la API esté funcionando correctamente"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is healthy', function () {",
+              "    pm.response.to.have.status(200);",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql('healthy');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Get Available Models",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/models",
+          "host": ["{{base_url}}"],
+          "path": ["models"]
+        },
+        "description": "Obtiene la lista de todos los modelos entrenados disponibles"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Models found', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.total_models).to.be.above(0);",
+              "    pm.expect(jsonData.available_models).to.be.an('array');",
+              "});",
+              "",
+              "// Save first model for later use",
+              "var models = pm.response.json().available_models;",
+              "if (models.length > 0) {",
+              "    pm.environment.set('first_model', models[0]);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Predict - Single Model (LSTM)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model_name\": \"lstm_model.pth\",\n  \"forecast_days\": 7,\n  \"include_confidence_intervals\": false\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Realiza predicción usando el modelo LSTM para 7 días"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Prediction successful', function () {",
+              "    pm.response.to.have.status(200);",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql('success');",
+              "});",
+              "",
+              "pm.test('Correct forecast days', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.forecast_days).to.eql(7);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Predict - All Models (30 days)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"forecast_days\": 30,\n  \"ensemble_method\": \"mean\",\n  \"include_confidence_intervals\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Realiza predicción usando todos los modelos disponibles para 30 días con ensemble por promedio"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Multiple models used', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.total_models_used).to.be.above(0);",
+              "});",
+              "",
+              "pm.test('Has predictions', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.predictions).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Predict - CatBoost (14 days)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model_name\": \"catboost_model\",\n  \"forecast_days\": 14,\n  \"include_confidence_intervals\": false\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Realiza predicción usando CatBoost para 14 días"
+      }
+    },
+    {
+      "name": "6. Predict - URL Parameter",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"forecast_days\": 7\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict/lstm_model.pth",
+          "host": ["{{base_url}}"],
+          "path": ["predict", "lstm_model.pth"]
+        },
+        "description": "Endpoint alternativo especificando el modelo en la URL"
+      }
+    },
+    {
+      "name": "7. Get Model Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/models/lstm_model.pth/info",
+          "host": ["{{base_url}}"],
+          "path": ["models", "lstm_model.pth", "info"]
+        },
+        "description": "Obtiene información detallada de un modelo específico"
+      }
+    },
+    {
+      "name": "8. Predict - Short Forecast (3 days)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"forecast_days\": 3,\n  \"ensemble_method\": \"median\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Predicción corta de 3 días con ensemble por mediana"
+      }
+    },
+    {
+      "name": "9. API Root Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/",
+          "host": ["{{base_url}}"],
+          "path": [""]
+        },
+        "description": "Obtiene información general de la API"
+      }
+    },
+    {
+      "name": "10. Error Test - Invalid Model",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model_name\": \"modelo_inexistente.pkl\",\n  \"forecast_days\": 7\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Prueba manejo de errores con un modelo que no existe"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Should return error', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([400, 404]);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
