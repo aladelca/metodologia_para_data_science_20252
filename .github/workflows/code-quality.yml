@@ -24,6 +24,15 @@ jobs:
         pip install flake8-builtins flake8-pytest-style flake8-variables-names flake8-simplify
         pip install bandit types-PyYAML types-requests types-setuptools types-python-dateutil
 
+    - name: Verify pre-commit setup
+      run: |
+        # Verificar que pre-commit esté configurado
+        if [ ! -f ".pre-commit-config.yaml" ]; then
+          echo "❌ Error: .pre-commit-config.yaml no encontrado"
+          exit 1
+        fi
+        echo "✅ Configuración de pre-commit encontrada"
+
     - name: Run pre-commit hooks
       run: |
         pre-commit install
@@ -57,34 +66,34 @@ jobs:
     - name: Check required documentation
       run: |
         echo "Checking for required documentation files..."
-        
+
         # Check for README
         if [ ! -f "README.md" ]; then
           echo "ERROR: README.md not found"
           exit 1
         fi
-        
+
         # Check for guides
         if [ ! -f "GUIA_TRABAJO_FINAL.md" ]; then
           echo "ERROR: GUIA_TRABAJO_FINAL.md not found"
           exit 1
         fi
-        
+
         if [ ! -f "PYTHON_INSTALLATION.md" ]; then
           echo "ERROR: PYTHON_INSTALLATION.md not found"
           exit 1
         fi
-        
+
         if [ ! -f "instrucciones_git.md" ]; then
           echo "ERROR: instrucciones_git.md not found"
           exit 1
         fi
-        
+
         if [ ! -f "VALIDATIONS.md" ]; then
           echo "ERROR: VALIDATIONS.md not found"
           exit 1
         fi
-        
+
         echo "All required documentation files found!"
 
     - name: Validate markdown structure

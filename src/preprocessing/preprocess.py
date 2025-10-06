@@ -1,15 +1,20 @@
+import os
+import sys
+
 import pandas as pd
-import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from statsmodels.tsa import seasonal
-import sys
-import os
 
 # Add src directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from utils import (
-    adf_test, crear_features_completas, verificar_no_data_leakage,
-    crear_variable_exogena_segura, preparar_datos_prophet, create_sequences
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from utils import (  # noqa: E402
+    adf_test,
+    crear_features_completas,
+    crear_variable_exogena_segura,
+    create_sequences,
+    handle_timezone_compatibility,
+    preparar_datos_prophet,
+    verificar_no_data_leakage,
 )
 
 
@@ -33,16 +38,16 @@ class TimeSeriesPreprocessor:
     def _get_default_config(self):
         """Default configuration for feature engineering"""
         return {
-            'lags': [1, 2, 3, 5, 10, 20],
-            'ventanas_ma': [5, 10, 20, 50, 100],
-            'ventanas_std': [5, 10, 20, 50],
-            'ventanas_roll': [5, 10, 20],
-            'ventanas_cortas': [5, 10],
-            'ventanas_largas': [20, 50],
-            'ventanas_momentum': [5, 10, 20],
-            'incluir_fechas': True,
-            'incluir_tecnicas': True,
-            'incluir_momentum': True
+            "lags": [1, 2, 3, 5, 10, 20],
+            "ventanas_ma": [5, 10, 20, 50, 100],
+            "ventanas_std": [5, 10, 20, 50],
+            "ventanas_roll": [5, 10, 20],
+            "ventanas_cortas": [5, 10],
+            "ventanas_largas": [20, 50],
+            "ventanas_momentum": [5, 10, 20],
+            "incluir_fechas": True,
+            "incluir_tecnicas": True,
+            "incluir_momentum": True,
         }
 
     def load_data(self, file_path):
@@ -57,11 +62,11 @@ class TimeSeriesPreprocessor:
         """
         data = pd.read_parquet(file_path)
         data = data.reset_index()
-        data['Date'] = pd.to_datetime(data['Date'])
+        data["Date"] = pd.to_datetime(data["Date"])
         data = data.set_index("Date")
         return data
 
-    def check_stationarity(self, series, title=''):
+    def check_stationarity(self, series, title=""):
         """
         Check stationarity of time series
 
@@ -74,7 +79,7 @@ class TimeSeriesPreprocessor:
         """
         return adf_test(series, title)
 
-    def decompose_series(self, series, period=252, model='additive'):
+    def decompose_series(self, series, period=252, model="additive"):
         """
         Perform seasonal decomposition
 
@@ -88,7 +93,7 @@ class TimeSeriesPreprocessor:
         """
         return seasonal.seasonal_decompose(series, period=period, model=model)
 
-    def create_features(self, series, target_col='Close'):
+    def create_features(self, series, target_col="Close"):
         """
         Create comprehensive features for machine learning models
 
@@ -100,20 +105,23 @@ class TimeSeriesPreprocessor:
             pd.DataFrame: DataFrame with features
         """
         # Create target series
-        target_series = series if isinstance(series, pd.Series) else series[target_col]
+        if isinstance(series, pd.Series):
+            target_series = series
+        else:
+            target_series = series[target_col]
 
         # Create features
         features_df = crear_features_completas(target_series, self.config)
 
         # Add differenced target for some models
-        features_df['target_diff'] = features_df['target'].diff()
+        features_df["target_diff"] = features_df["target"].diff()
 
         # Verify no data leakage
-        verificar_no_data_leakage(features_df, 'target', mostrar_ejemplo=False)
+        verificar_no_data_leakage(features_df, "target", mostrar_ejemplo=False)
 
         return features_df
 
-    def prepare_arima_data(self, series, start_date='2000-01-01'):
+    def prepare_arima_data(self, series, start_date="2000-01-01"):
         """
         Prepare data for ARIMA models
 
@@ -125,18 +133,21 @@ class TimeSeriesPreprocessor:
             pd.Series: Prepared time series
         """
         if isinstance(series, pd.DataFrame):
-            series = series['Close']
+            series = series["Close"]
 
-        # Filter by date
-        filtered_series = series[series.index >= start_date]
+        # Filter by date with timezone handling
+        start_dt = handle_timezone_compatibility(start_date, series.index)
+        filtered_series = series[series.index >= start_dt]
 
         # Check stationarity
-        is_stationary = self.check_stationarity(filtered_series, 'Original Series')
+        is_stationary = self.check_stationarity(
+            filtered_series, "Original Series"
+        )
 
         if not is_stationary:
             # Apply differencing
             diff_series = filtered_series.diff().dropna()
-            self.check_stationarity(diff_series, 'Differenced Series')
+            self.check_stationarity(diff_series, "Differenced Series")
             return diff_series
 
         return filtered_series
@@ -147,19 +158,20 @@ class TimeSeriesPreprocessor:
 
         Args:
             series (pd.Series): Input time series
-            events_periods (list): List of event periods for exogenous variables
+            events_periods (list): List of event periods for exogenous
+                variables
 
         Returns:
             tuple: (prophet_df, exogenous_variables)
         """
         if isinstance(series, pd.DataFrame):
-            series = series['Close']
+            series = series["Close"]
 
         # Create exogenous variables if events are provided
         exogenous_vars = {}
         if events_periods:
             for i, period in enumerate(events_periods):
-                var_name = f'event_{i+1}'
+                var_name = f"event_{i + 1}"
                 exogenous_vars[var_name] = crear_variable_exogena_segura(
                     series, [period], var_name
                 )
@@ -169,8 +181,14 @@ class TimeSeriesPreprocessor:
 
         return prophet_df, list(exogenous_vars.keys())
 
-    def prepare_ml_data(self, series, train_start='2021-01-01', train_end='2023-12-31',
-                       test_start='2024-01-01', target_col='Close'):
+    def prepare_ml_data(
+        self,
+        series,
+        train_start="2021-01-01",
+        train_end="2023-12-31",
+        test_start="2024-01-01",
+        target_col="Close",
+    ):
         """
         Prepare data for machine learning models (CatBoost, LightGBM)
 
@@ -192,27 +210,71 @@ class TimeSeriesPreprocessor:
 
         features_df = self.create_features(target_series, target_col)
 
-        # Split data
-        train_data = features_df.loc[train_start:train_end]
-        test_data = features_df.loc[test_start:]
+        # Split data with timezone handling
+        train_start_dt = handle_timezone_compatibility(
+            train_start, features_df.index
+        )
+        train_end_dt = handle_timezone_compatibility(
+            train_end, features_df.index
+        )
+        test_start_dt = (
+            handle_timezone_compatibility(test_start, features_df.index)
+            if test_start
+            else None
+        )
 
-        # Remove rows with NaN values
-        train_data = train_data.dropna()
-        test_data = test_data.dropna()
+        train_data = features_df.loc[train_start_dt:train_end_dt]
+        test_data = (
+            features_df.loc[test_start_dt:]
+            if test_start_dt
+            else pd.DataFrame()
+        )
 
-        # Separate features and target
-        feature_cols = [col for col in train_data.columns if col not in ['target', 'target_diff']]
+        # Separate features and target before removing NaN
+        feature_cols = [
+            col
+            for col in features_df.columns
+            if col not in ["target", "target_diff"]
+        ]
 
+        # Use original target instead of differenced target for ML models
+        # The differenced target often causes issues with empty data
         train_features = train_data[feature_cols]
-        train_target = train_data['target_diff']  # Use differenced target
+        train_target = train_data["target"]  # Use original target
 
-        test_features = test_data[feature_cols]
-        test_target = test_data['target_diff']
+        test_features = (
+            test_data[feature_cols] if not test_data.empty else pd.DataFrame()
+        )
+        test_target = (
+            test_data["target"]
+            if not test_data.empty
+            else pd.Series(dtype=float)
+        )
+
+        # Remove rows with NaN values in features and target
+        valid_train_mask = ~(
+            train_features.isna().any(axis=1) | train_target.isna()
+        )
+        train_features = train_features[valid_train_mask]
+        train_target = train_target[valid_train_mask]
+
+        if not test_features.empty:
+            valid_test_mask = ~(
+                test_features.isna().any(axis=1) | test_target.isna()
+            )
+            test_features = test_features[valid_test_mask]
+            test_target = test_target[valid_test_mask]
 
         return train_features, train_target, test_features, test_target
 
-    def prepare_lstm_data(self, series, sequence_length=60, train_ratio=0.8,
-                         feature_columns=None, target_column='Close'):
+    def prepare_lstm_data(
+        self,
+        series,
+        sequence_length=60,
+        train_ratio=0.8,
+        feature_columns=None,
+        target_column="Close",
+    ):
         """
         Prepare data for LSTM model
 
@@ -228,7 +290,9 @@ class TimeSeriesPreprocessor:
         """
         # Select features
         if feature_columns is None:
-            feature_columns = [col for col in series.columns if col != target_column]
+            feature_columns = [
+                col for col in series.columns if col != target_column
+            ]
 
         features = series[feature_columns].values
         target = series[target_column].values.reshape(-1, 1)
@@ -238,17 +302,21 @@ class TimeSeriesPreprocessor:
         target_scaled = self.target_scaler.fit_transform(target)
 
         # Create sequences
-        X, y = create_sequences(features_scaled, target_scaled.flatten(), sequence_length)
+        features_x, features_y = create_sequences(
+            features_scaled, target_scaled.flatten(), sequence_length
+        )
 
         # Split into train and test
-        split_idx = int(len(X) * train_ratio)
+        split_idx = int(len(features_x) * train_ratio)
 
-        X_train, X_test = X[:split_idx], X[split_idx:]
-        y_train, y_test = y[:split_idx], y[split_idx:]
+        train_x = features_x[:split_idx]
+        test_x = features_x[split_idx:]
+        train_y = features_y[:split_idx]
+        test_y = features_y[split_idx:]
 
         self.is_fitted = True
 
-        return X_train, X_test, y_train, y_test
+        return train_x, test_x, train_y, test_y
 
     def inverse_transform_lstm(self, predictions):
         """
@@ -261,9 +329,13 @@ class TimeSeriesPreprocessor:
             np.array: Original scale predictions
         """
         if not self.is_fitted:
-            raise ValueError("Scaler not fitted. Call prepare_lstm_data first.")
+            raise ValueError(
+                "Scaler not fitted. Call prepare_lstm_data first."
+            )
 
-        return self.target_scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
+        return self.target_scaler.inverse_transform(
+            predictions.reshape(-1, 1)
+        ).flatten()
 
     def create_sarimax_exogenous(self, series, events_periods):
         """
@@ -279,8 +351,10 @@ class TimeSeriesPreprocessor:
         exog_df = pd.DataFrame(index=series.index)
 
         for i, period in enumerate(events_periods):
-            var_name = f'event_{i+1}'
-            exog_var = crear_variable_exogena_segura(series, [period], var_name)
+            var_name = f"event_{i + 1}"
+            exog_var = crear_variable_exogena_segura(
+                series, [period], var_name
+            )
             exog_df[var_name] = exog_var
 
         return exog_df
@@ -292,7 +366,8 @@ def preprocess_for_model(data_path, model_type, **kwargs):
 
     Args:
         data_path (str): Path to data file
-        model_type (str): Type of model ('arima', 'prophet', 'ml', 'lstm', 'sarimax')
+        model_type (str): Type of model ('arima', 'prophet', 'ml',
+            'lstm', 'sarimax')
         **kwargs: Additional arguments for preprocessing
 
     Returns:
@@ -301,19 +376,19 @@ def preprocess_for_model(data_path, model_type, **kwargs):
     preprocessor = TimeSeriesPreprocessor()
     data = preprocessor.load_data(data_path)
 
-    if model_type == 'arima':
+    if model_type == "arima":
         return preprocessor.prepare_arima_data(data, **kwargs)
-    elif model_type == 'prophet':
+    elif model_type == "prophet":
         return preprocessor.prepare_prophet_data(data, **kwargs)
-    elif model_type == 'ml':
+    elif model_type == "ml":
         return preprocessor.prepare_ml_data(data, **kwargs)
-    elif model_type == 'lstm':
+    elif model_type == "lstm":
         return preprocessor.prepare_lstm_data(data, **kwargs)
-    elif model_type == 'sarimax':
-        series = data['Close'] if 'Close' in data.columns else data.iloc[:, 0]
-        exog = preprocessor.create_sarimax_exogenous(series, kwargs.get('events_periods', []))
+    elif model_type == "sarimax":
+        series = data["Close"] if "Close" in data.columns else data.iloc[:, 0]
+        exog = preprocessor.create_sarimax_exogenous(
+            series, kwargs.get("events_periods", [])
+        )
         return series, exog
     else:
         raise ValueError(f"Unknown model type: {model_type}")
-
-
