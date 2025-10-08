@@ -7,16 +7,19 @@ import pickle
 import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+
 import pandas as pd
 import torch
 from catboost import CatBoostRegressor
+
 from preprocessing.preprocess import TimeSeriesPreprocessor
 from utils import LSTMModel
+
 from .models import (
     ModelPrediction,
     ModelType,
     PredictionRequest,
-    PredictionResponse
+    PredictionResponse,
 )
 
 
@@ -28,9 +31,7 @@ class PredictionService:
         self.loaded_models: Dict[str, Any] = {}
 
     async def predict(
-            self, 
-            request: 
-            PredictionRequest
+        self, request: PredictionRequest
     ) -> PredictionResponse:
         """
         Generate predictions using specified models
@@ -68,9 +69,10 @@ class PredictionService:
                 ModelType.LIGHTGBM,
                 ModelType.LSTM,
             }
-            requires_data = any(
-                mt in ml_models for mt in request.model_types
-            ) or ModelType.ALL in request.model_types
+            requires_data = (
+                any(mt in ml_models for mt in request.model_types)
+                or ModelType.ALL in request.model_types
+            )
 
             # Load historical data if provided or required
             historical_data = None
