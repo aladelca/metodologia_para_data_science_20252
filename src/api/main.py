@@ -18,17 +18,20 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))  # noqa: E402
 from .models import (  # noqa: E402
     ErrorResponse,
     ModelType,
+    PredictionRequest,
+    PredictionResponse,
     TrainingRequest,
     TrainingResponse,
     TrainingStatusResponse,
 )
+from .prediction_service import PredictionService  # noqa: E402
 from .training_service import TrainingService  # noqa: E402
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Time Series Model Training API",
+    title="Time Series Model Training & Prediction API",
     description=(
-        "API for training various time series models "
+        "API for training and prediction with various time series models "
         "(ARIMA, Prophet, CatBoost, LightGBM, LSTM)"
     ),
     version="1.0.0",
@@ -45,20 +48,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize training service
+# Initialize services
 training_service = TrainingService()
+prediction_service = PredictionService()
 
 
 @app.get("/", response_model=dict)
 async def root():
     """Root endpoint with API information"""
     return {
-        "message": "Time Series Model Training API",
+        "message": "Time Series Model Training & Prediction API",
         "version": "1.0.0",
         "docs": "/docs",
         "available_models": [model.value for model in ModelType],
         "endpoints": {
             "train": "/train",
+            "predict": "/predict",
             "status": "/status/{job_id}",
             "jobs": "/jobs",
             "health": "/health",
@@ -260,6 +265,44 @@ async def get_model_info(model_type: str) -> Dict[str, Any]:
         raise HTTPException(
             status_code=400, detail=f"Invalid model type: {model_type}"
         )
+
+
+@app.post("/predict", response_model=PredictionResponse)  # type: ignore
+async def predict(request: PredictionRequest) -> PredictionResponse:
+    """
+    Generate predictions using trained models
+
+    - **model_types**: List of model types to use for prediction (or ["all"] for all models)
+    - **steps**: Number of steps to forecast into the future
+    - **models_dir**: Directory containing trained models (default: models/trianing)
+    - **data_path**: Optional path to historical data (required for ML models)
+    """
+    try:
+        # Validate model types
+        if not request.model_types:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one model type must be specified",
+            )
+
+        # Validate steps
+        if request.steps <= 0:
+            raise HTTPException(
+                status_code=400, detail="Steps must be greater than 0"
+            )
+
+        # Generate predictions
+        response = await prediction_service.predict(request)
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_response = ErrorResponse(
+            error="Prediction failed", detail=str(e), timestamp=datetime.now()
+        )
+        raise HTTPException(status_code=500, detail=error_response.dict())
 
 
 @app.exception_handler(Exception)
