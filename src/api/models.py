@@ -120,11 +120,11 @@ class PredictionRequest(BaseModel):  # type: ignore
         description="Path to the trained model file",
         example="models/arima_model.pkl"
     )
-    #data_path: Optional[str] = Field(
-    #    None,
-    #    description="Optional path to data file (for some models)",
-    #    example=None
-    #)
+    data_path: Optional[str] = Field(
+        None,
+        description="Optional path to data file (for some models)",
+        example=None
+    )
     periods: int = Field(
         30,
         ge=1,
