@@ -5,8 +5,9 @@ FastAPI application for model predictions
 import os
 import sys
 from datetime import datetime
+from typing import Any, Dict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -47,7 +48,7 @@ prediction_service = PredictionService()
 
 
 @app.get("/", response_model=dict)
-async def root():
+async def root() -> Dict[str, Any]:
     """Root endpoint with API information"""
     return {
         "message": "Time Series Prediction API",
@@ -65,7 +66,7 @@ async def root():
 
 
 @app.get("/health", response_model=dict)
-async def health_check():
+async def health_check() -> Dict[str, Any]:
     """Health check endpoint"""
     return {
         "status": "healthy",
@@ -76,7 +77,7 @@ async def health_check():
 
 
 @app.get("/models", response_model=AvailableModelsResponse)
-async def get_available_models():
+async def get_available_models() -> AvailableModelsResponse:
     """
     Get list of all available trained models
 
@@ -96,7 +97,7 @@ async def get_available_models():
         )
 
 
-@app.post("/predict", response_model=PredictionResponse)  # type: ignore
+@app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest) -> PredictionResponse:
     """
     Make predictions using trained models
@@ -168,9 +169,7 @@ async def predict(request: PredictionRequest) -> PredictionResponse:
         raise HTTPException(status_code=500, detail=error_response.dict())
 
 
-@app.post(  # type: ignore
-    "/predict/{model_name}", response_model=PredictionResponse
-)
+@app.post("/predict/{model_name}", response_model=PredictionResponse)
 async def predict_with_model(
     model_name: str, request: PredictionRequest
 ) -> PredictionResponse:
@@ -200,7 +199,7 @@ async def predict_with_model(
 
 
 @app.get("/models/{model_name}/info", response_model=dict)
-async def get_model_info(model_name: str):
+async def get_model_info(model_name: str) -> Dict[str, Any]:
     """
     Get detailed information about a specific model
 
@@ -237,7 +236,9 @@ async def get_model_info(model_name: str):
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
+async def global_exception_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
     """Global exception handler"""
     error_response = PredictionErrorResponse(
         error="Internal server error",

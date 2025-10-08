@@ -8,7 +8,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -95,7 +95,9 @@ class PredictionService:
                         "model_name": pattern,
                         "model_type": model_type,
                         "file_path": model_path,
-                        "file_size_mb": round(file_stats.st_size / (1024 * 1024), 2),
+                        "file_size_mb": round(
+                            file_stats.st_size / (1024 * 1024), 2
+                        ),
                         "last_modified": datetime.fromtimestamp(
                             file_stats.st_mtime
                         ).isoformat(),
@@ -169,7 +171,7 @@ class PredictionService:
         )
 
         # Load model
-        model = self.inference.load_model(model_type, model_path)
+        model = self.inference.load_model(model_type, model_path)  # type: ignore[no-untyped-call]
 
         # Make predictions based on model type
         predictions = []
@@ -178,20 +180,20 @@ class PredictionService:
 
         if model_type in ["arima", "sarimax"]:
             if request.include_confidence_intervals:
-                pred, conf_int = self.inference.predict_arima(
+                pred, conf_int = self.inference.predict_arima(  # type: ignore[no-untyped-call]
                     model, steps=request.forecast_days, return_conf_int=True
                 )
                 predictions = pred.tolist()
                 confidence_lower = conf_int.iloc[:, 0].tolist()
                 confidence_upper = conf_int.iloc[:, 1].tolist()
             else:
-                pred = self.inference.predict_arima(
+                pred = self.inference.predict_arima(  # type: ignore[no-untyped-call]
                     model, steps=request.forecast_days, return_conf_int=False
                 )
                 predictions = pred.tolist()
 
         elif model_type == "prophet":
-            forecast = self.inference.predict_prophet(
+            forecast = self.inference.predict_prophet(  # type: ignore[no-untyped-call]
                 model, periods=request.forecast_days, freq="D"
             )
             # Get only future predictions (not historical)
@@ -206,14 +208,14 @@ class PredictionService:
             # For ML models, we need to prepare features for future dates
             # This is a simplified approach - in production you'd need
             # proper feature engineering for future dates
-            _, _, test_X, _ = self.preprocessor.prepare_ml_data(
+            _, _, test_X, _ = self.preprocessor.prepare_ml_data(  # type: ignore[no-untyped-call]
                 data, test_start=last_date.strftime("%Y-%m-%d")
             )
 
             if len(test_X) > 0:
                 # Use available test data
                 num_predictions = min(len(test_X), request.forecast_days)
-                pred = self.inference.predict_ml_models(
+                pred = self.inference.predict_ml_models(  # type: ignore[no-untyped-call]
                     model, test_X[:num_predictions], model_type
                 )
                 predictions = pred.tolist()
@@ -225,11 +227,11 @@ class PredictionService:
 
         elif model_type == "lstm":
             # Prepare LSTM data
-            _, X_test, _, y_test = self.preprocessor.prepare_lstm_data(data)
+            _, X_test, _, y_test = self.preprocessor.prepare_lstm_data(data)  # type: ignore[no-untyped-call]
 
             if len(X_test) > 0:
                 # Multi-step forecast
-                pred = self.inference.multi_step_forecast_lstm(
+                pred = self.inference.multi_step_forecast_lstm(  # type: ignore[no-untyped-call]
                     model,
                     X_test[-1],
                     steps=request.forecast_days,
@@ -277,11 +279,11 @@ class PredictionService:
         # Determine which models to use
         if request.model_name:
             # Use specific model
-            if request.model_name not in available_models_response.available_models:
+            available_models = available_models_response.available_models
+            if request.model_name not in available_models:
                 raise ValueError(
                     f"Model '{request.model_name}' not found. "
-                    f"Available models: "
-                    f"{available_models_response.available_models}"
+                    f"Available models: {available_models}"
                 )
             models_to_use = [request.model_name]
         else:
@@ -316,7 +318,7 @@ class PredictionService:
                 for pred in predictions
             }
 
-            ensemble_pred = self.inference.get_ensemble_prediction(
+            ensemble_pred = self.inference.get_ensemble_prediction(  # type: ignore[no-untyped-call]
                 preds_dict, method=request.ensemble_method or "mean"
             )
             ensemble_prediction = ensemble_pred.tolist()
@@ -326,7 +328,7 @@ class PredictionService:
 
         # Determine forecast date range
         data_path = request.data_path or self.default_data_path
-        data = self.preprocessor.load_data(data_path)
+        data = self.preprocessor.load_data(data_path)  # type: ignore[no-untyped-call]
         last_date = data.index[-1]
         forecast_start = (last_date + timedelta(days=1)).strftime("%Y-%m-%d")
         forecast_end = (

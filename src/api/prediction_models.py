@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
-class PredictionRequest(BaseModel):  # type: ignore
+class PredictionRequest(BaseModel):
     """Request model for prediction API"""
 
     model_name: Optional[str] = Field(
@@ -48,7 +48,7 @@ class PredictionRequest(BaseModel):  # type: ignore
     )
 
 
-class ModelPrediction(BaseModel):  # type: ignore
+class ModelPrediction(BaseModel):
     """Individual model prediction result"""
 
     model_name: str
@@ -61,7 +61,7 @@ class ModelPrediction(BaseModel):  # type: ignore
     prediction_time_seconds: float
 
 
-class PredictionResponse(BaseModel):  # type: ignore
+class PredictionResponse(BaseModel):
     """Response model for prediction API"""
 
     request_id: str
@@ -80,7 +80,7 @@ class PredictionResponse(BaseModel):  # type: ignore
     created_at: datetime
 
 
-class AvailableModelsResponse(BaseModel):  # type: ignore
+class AvailableModelsResponse(BaseModel):
     """Response model for available models endpoint"""
 
     models_directory: str
@@ -89,7 +89,7 @@ class AvailableModelsResponse(BaseModel):  # type: ignore
     total_models: int
 
 
-class PredictionErrorResponse(BaseModel):  # type: ignore
+class PredictionErrorResponse(BaseModel):
     """Error response model for predictions"""
 
     error: str
