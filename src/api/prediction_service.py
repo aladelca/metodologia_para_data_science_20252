@@ -27,7 +27,11 @@ class PredictionService:
         self.preprocessor = TimeSeriesPreprocessor()
         self.loaded_models: Dict[str, Any] = {}
 
-    async def predict(self, request: PredictionRequest) -> PredictionResponse:
+    async def predict(
+            self, 
+            request: 
+            PredictionRequest
+    ) -> PredictionResponse:
         """
         Generate predictions using specified models
 
