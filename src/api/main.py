@@ -21,8 +21,11 @@ from .models import (  # noqa: E402
     TrainingRequest,
     TrainingResponse,
     TrainingStatusResponse,
+    PredictionRequest, 
+    PredictionResponse, 
 )
 from .training_service import TrainingService  # noqa: E402
+from .prediction_service import PredictionService  # noqa: E402
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -47,6 +50,7 @@ app.add_middleware(
 
 # Initialize training service
 training_service = TrainingService()
+prediction_service = PredictionService()
 
 
 @app.get("/", response_model=dict)
@@ -272,6 +276,95 @@ async def global_exception_handler(request, exc):
     )
     return JSONResponse(status_code=500, content=error_response.dict())
 
+# =============================================================================
+# NUEVOS ENDPOINTS DE PREDICTION
+# =============================================================================
+
+@app.post("/predict", response_model=PredictionResponse)  # type: ignore
+async def predict_models(request: PredictionRequest) -> PredictionResponse:
+    """
+    Make predictions using trained models
+    
+    - **model_types**: List of model types to use for prediction
+    - **model_dir**: Directory containing trained models
+    - **data_path**: Optional path to data file (required for some models)
+    - **periods**: Number of periods to forecast (1-365)
+    - **prediction_params**: Optional parameters for prediction
+    """
+    try:
+        return await prediction_service.predict(request)
+    except Exception as e:
+        error_response = ErrorResponse(
+            error="Prediction failed", detail=str(e), timestamp=datetime.now()
+        )
+        raise HTTPException(status_code=500, detail=error_response.dict())
+
+
+@app.get("/prediction/{prediction_id}", response_model=PredictionResponse)  # type: ignore
+async def get_prediction_status(prediction_id: str) -> PredictionResponse:
+    """
+    Get the status of a prediction job
+
+    - **prediction_id**: The prediction ID returned from the predict endpoint
+    """
+    prediction = prediction_service.get_prediction_status(prediction_id)
+    if not prediction:
+        raise HTTPException(status_code=404, detail=f"Prediction {prediction_id} not found")
+    return prediction
+
+
+@app.get("/predictions", response_model=List[PredictionResponse])  # type: ignore
+async def list_predictions():
+    """
+    List all prediction jobs
+    """
+    return prediction_service.list_predictions()
+
+
+@app.get("/models/trained", response_model=List[dict])  # type: ignore
+async def get_available_trained_models(model_dir: str = "models/"):
+    """
+    Get list of available trained models in a directory
+    """
+    try:
+        available_models = []
+        model_files = {
+            "arima": "arima_model.pkl",
+            "prophet": "prophet_model.pkl",
+            "catboost": "catboost_model",
+            "lightgbm": "lightgbm_model.pkl", 
+            "lstm": "lstm_model.pth"
+        }
+        
+        for model_type, filename in model_files.items():
+            model_path = os.path.join(model_dir, filename)
+            if os.path.exists(model_path):
+                model_size = f"{os.path.getsize(model_path) / 1024 / 1024:.2f} MB"
+                available_models.append({
+                    "model_type": model_type,
+                    "model_path": model_path,
+                    "model_size": model_size,
+                    "created_at": datetime.fromtimestamp(os.path.getctime(model_path)),
+                    "is_available": True
+                })
+        
+        return available_models
+    except Exception as e:
+        error_response = ErrorResponse(
+            error="Failed to get trained models", detail=str(e), timestamp=datetime.now()
+        )
+        raise HTTPException(status_code=500, detail=error_response.dict())
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler"""
+    error_response = ErrorResponse(
+        error="Internal server error",
+        detail=str(exc),
+        timestamp=datetime.now(),
+    )
+    return JSONResponse(status_code=500, content=error_response.dict())
 
 if __name__ == "__main__":
     import uvicorn
