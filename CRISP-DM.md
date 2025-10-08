@@ -53,7 +53,7 @@ Criterios de éxito: Aumento en la retención de clientes, incremento en LTV
 **Ejemplo de traducción:**
 ```
 Objetivo empresarial: Reducir abandono de clientes
-Objetivo de data science: Desarrollar un modelo predictivo que identifique 
+Objetivo de data science: Desarrollar un modelo predictivo que identifique
 clientes con alta probabilidad de abandono (precisión > 85%)
 ```
 
