@@ -16,7 +16,7 @@ from .models import (
     ModelPrediction,
     ModelType,
     PredictionRequest,
-    PredictionResponse,
+    PredictionResponse
 )
 
 
@@ -68,10 +68,9 @@ class PredictionService:
                 ModelType.LIGHTGBM,
                 ModelType.LSTM,
             }
-            requires_data = (
-                any(mt in ml_models for mt in request.model_types)
-                or ModelType.ALL in request.model_types
-            )
+            requires_data = any(
+                mt in ml_models for mt in request.model_types
+            ) or ModelType.ALL in request.model_types
 
             # Load historical data if provided or required
             historical_data = None
