@@ -272,9 +272,11 @@ async def predict(request: PredictionRequest) -> PredictionResponse:
     """
     Generate predictions using trained models
 
-    - **model_types**: List of model types to use for prediction (or ["all"] for all models)
-    - **steps**: Number of steps to forecast into the future
-    - **models_dir**: Directory containing trained models (default: models/trianing)
+    - **model_types**: List of model types
+    to use for prediction
+    - **steps**: Number of steps
+    to forecast into the future
+    - **models_dir**: Directory containing trained models
     - **data_path**: Optional path to historical data (required for ML models)
     """
     try:

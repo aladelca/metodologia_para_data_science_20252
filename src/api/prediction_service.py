@@ -7,16 +7,17 @@ import pickle
 import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
-
-import numpy as np
 import pandas as pd
 import torch
 from catboost import CatBoostRegressor
-
 from preprocessing.preprocess import TimeSeriesPreprocessor
 from utils import LSTMModel
-
-from .models import ModelPrediction, ModelType, PredictionRequest, PredictionResponse
+from .models import (
+    ModelPrediction,
+    ModelType,
+    PredictionRequest,
+    PredictionResponse,
+)
 
 
 class PredictionService:
@@ -58,24 +59,36 @@ class PredictionService:
                 )
 
             # Check which models require historical data
-            ml_models = {ModelType.CATBOOST, ModelType.LIGHTGBM, ModelType.LSTM}
-            requires_data = any(mt in ml_models for mt in request.model_types) or ModelType.ALL in request.model_types
+            ml_models = {
+                ModelType.CATBOOST,
+                ModelType.LIGHTGBM,
+                ModelType.LSTM,
+            }
+            requires_data = (
+                any(mt in ml_models for mt in request.model_types)
+                or ModelType.ALL in request.model_types
+            )
 
             # Load historical data if provided or required
             historical_data = None
             if requires_data:
                 if not request.data_path:
                     raise ValueError(
-                        "data_path is required for ML models (CatBoost, LightGBM, LSTM). "
+                        "data_path is required for ML models "
+                        "(CatBoost, LightGBM, LSTM). "
                         "Please provide the path to historical data."
                     )
                 if not os.path.exists(request.data_path):
                     raise FileNotFoundError(
                         f"Data file not found: {request.data_path}"
                     )
-                historical_data = self.preprocessor.load_data(request.data_path)
+                historical_data = self.preprocessor.load_data(
+                    request.data_path
+                )
             elif request.data_path and os.path.exists(request.data_path):
-                historical_data = self.preprocessor.load_data(request.data_path)
+                historical_data = self.preprocessor.load_data(
+                    request.data_path
+                )
 
             # Generate predictions for each model type
             for model_type in request.model_types:
@@ -106,8 +119,10 @@ class PredictionService:
                 if response.failed_models > 0:
                     response.status = "partial"
                     response.message = (
-                        f"Prediction partially completed. {response.successful_models}/"
-                        f"{response.total_models} models predicted successfully"
+                        f"Prediction partially completed. "
+                        f"{response.successful_models}/"
+                        f"{response.total_models} models predicted "
+                        f"successfully"
                     )
                 else:
                     response.status = "success"
@@ -154,7 +169,8 @@ class PredictionService:
             )
 
     async def _predict_arima(
-        self, request: PredictionRequest, historical_data: Optional[pd.DataFrame]
+        self, request: PredictionRequest,
+        historical_data: Optional[pd.DataFrame]
     ) -> ModelPrediction:
         """Generate predictions using ARIMA model"""
         model_path = os.path.join(request.models_dir, "arima_model.pkl")
@@ -172,7 +188,9 @@ class PredictionService:
         # Generate prediction dates
         last_date = model.fittedvalues.index[-1]
         prediction_dates = pd.date_range(
-            start=last_date + timedelta(days=1), periods=request.steps, freq="D"
+            start=last_date + timedelta(days=1),
+            periods=request.steps,
+            freq="D",
         )
 
         # Get confidence intervals if available
@@ -189,23 +207,41 @@ class PredictionService:
             model_type=ModelType.ARIMA.value,
             status="success",
             message="ARIMA prediction completed successfully",
-            predictions=forecast.tolist() if hasattr(forecast, "tolist") else list(forecast),
-            prediction_dates=[d.strftime("%Y-%m-%d") for d in prediction_dates],
+            predictions=(
+                forecast.tolist()
+                if hasattr(forecast, "tolist")
+                else list(forecast)
+            ),
+            prediction_dates=[
+                d.strftime("%Y-%m-%d") for d in prediction_dates
+            ],
             confidence_intervals=confidence_intervals,
-            metrics={"model_order": model.model_orders.get("ar", (0, 0, 0)) if hasattr(model, "model_orders") else None},
+            metrics={
+                "model_order": (
+                    model.model_orders.get("ar", (0, 0, 0))
+                    if hasattr(model, "model_orders")
+                    else None
+                )
+            },
         )
 
     async def _predict_catboost(
-        self, request: PredictionRequest, historical_data: Optional[pd.DataFrame]
+        self,
+        request: PredictionRequest,
+        historical_data: Optional[pd.DataFrame],
     ) -> ModelPrediction:
         """Generate predictions using CatBoost model"""
         model_path = os.path.join(request.models_dir, "catboost_model")
 
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"CatBoost model not found at {model_path}")
+            raise FileNotFoundError(
+                f"CatBoost model not found at {model_path}"
+            )
 
         if historical_data is None:
-            raise ValueError("Historical data is required for CatBoost predictions")
+            raise ValueError(
+                "Historical data is required for CatBoost predictions"
+            )
 
         # Load model
         model = CatBoostRegressor()
@@ -221,25 +257,35 @@ class PredictionService:
             status="success",
             message="CatBoost prediction completed successfully",
             predictions=predictions,
-            prediction_dates=[d.strftime("%Y-%m-%d") for d in prediction_dates],
+            prediction_dates=[
+                d.strftime("%Y-%m-%d") for d in prediction_dates
+            ],
             metrics={
-                "feature_importance": model.get_feature_importance().tolist()
-                if hasattr(model, "get_feature_importance")
-                else None
+                "feature_importance": (
+                    model.get_feature_importance().tolist()
+                    if hasattr(model, "get_feature_importance")
+                    else None
+                )
             },
         )
 
     async def _predict_lstm(
-        self, request: PredictionRequest, historical_data: Optional[pd.DataFrame]
+        self,
+        request: PredictionRequest,
+        historical_data: Optional[pd.DataFrame],
     ) -> ModelPrediction:
         """Generate predictions using LSTM model"""
         model_path = os.path.join(request.models_dir, "lstm_model.pth")
 
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"LSTM model not found at {model_path}")
+            raise FileNotFoundError(
+                f"LSTM model not found at {model_path}"
+            )
 
         if historical_data is None:
-            raise ValueError("Historical data is required for LSTM predictions")
+            raise ValueError(
+                "Historical data is required for LSTM predictions"
+            )
 
         # Load model
         checkpoint = torch.load(model_path, map_location=torch.device("cpu"))
@@ -264,7 +310,9 @@ class PredictionService:
             status="success",
             message="LSTM prediction completed successfully",
             predictions=predictions,
-            prediction_dates=[d.strftime("%Y-%m-%d") for d in prediction_dates],
+            prediction_dates=[
+                d.strftime("%Y-%m-%d") for d in prediction_dates
+            ],
             metrics={
                 "hidden_size": model_config["hidden_size"],
                 "num_layers": model_config["num_layers"],
@@ -272,7 +320,9 @@ class PredictionService:
         )
 
     async def _predict_prophet(
-        self, request: PredictionRequest, historical_data: Optional[pd.DataFrame]
+        self,
+        request: PredictionRequest,
+        historical_data: Optional[pd.DataFrame],
     ) -> ModelPrediction:
         """Generate predictions using Prophet model"""
         model_path = os.path.join(request.models_dir, "prophet_model.pkl")
@@ -292,7 +342,12 @@ class PredictionService:
 
         # Get only future predictions
         predictions = forecast["yhat"].tail(request.steps).tolist()
-        prediction_dates = forecast["ds"].tail(request.steps).dt.strftime("%Y-%m-%d").tolist()
+        prediction_dates = (
+            forecast["ds"]
+            .tail(request.steps)
+            .dt.strftime("%Y-%m-%d")
+            .tolist()
+        )
 
         # Get confidence intervals
         confidence_intervals = {
@@ -310,16 +365,22 @@ class PredictionService:
         )
 
     async def _predict_lightgbm(
-        self, request: PredictionRequest, historical_data: Optional[pd.DataFrame]
+        self,
+        request: PredictionRequest,
+        historical_data: Optional[pd.DataFrame],
     ) -> ModelPrediction:
         """Generate predictions using LightGBM model"""
         model_path = os.path.join(request.models_dir, "lightgbm_model.pkl")
 
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"LightGBM model not found at {model_path}")
+            raise FileNotFoundError(
+                f"LightGBM model not found at {model_path}"
+            )
 
         if historical_data is None:
-            raise ValueError("Historical data is required for LightGBM predictions")
+            raise ValueError(
+                "Historical data is required for LightGBM predictions"
+            )
 
         # Load model
         import joblib
@@ -336,16 +397,22 @@ class PredictionService:
             status="success",
             message="LightGBM prediction completed successfully",
             predictions=predictions,
-            prediction_dates=[d.strftime("%Y-%m-%d") for d in prediction_dates],
+            prediction_dates=[
+                d.strftime("%Y-%m-%d") for d in prediction_dates
+            ],
             metrics={
-                "feature_importance": model.feature_importances_.tolist()
-                if hasattr(model, "feature_importances_")
-                else None
+                "feature_importance": (
+                    model.feature_importances_.tolist()
+                    if hasattr(model, "feature_importances_")
+                    else None
+                )
             },
         )
 
     async def _predict_all_models(
-        self, request: PredictionRequest, historical_data: Optional[pd.DataFrame]
+        self,
+        request: PredictionRequest,
+        historical_data: Optional[pd.DataFrame],
     ) -> List[ModelPrediction]:
         """Generate predictions using all available models"""
         all_model_types = [
@@ -366,14 +433,19 @@ class PredictionService:
         return predictions
 
     def _generate_ml_predictions(
-        self, model: Any, historical_data: pd.DataFrame, steps: int
+        self,
+        model: Any,
+        historical_data: pd.DataFrame,
+        steps: int,
     ) -> Tuple[List[float], List[pd.Timestamp]]:
         """
         Generate multi-step predictions for ML models (CatBoost, LightGBM)
         using recursive forecasting
         """
         # Prepare the most recent data for features
-        train_X, train_y, _, _ = self.preprocessor.prepare_ml_data(historical_data)
+        train_X, train_y, _, _ = self.preprocessor.prepare_ml_data(
+            historical_data
+        )
 
         predictions = []
         last_date = historical_data.index[-1]
@@ -399,7 +471,11 @@ class PredictionService:
                         if lag_num > 1:
                             new_col = f"lag_{lag_num - 1}"
                             if new_col in current_features.columns:
-                                current_features[new_col] = current_features[col]
+                                current_features[
+                                    new_col
+                                ] = current_features[
+                                    col
+                                ]
 
                 # Add the prediction as the most recent value
                 if "lag_1" in current_features.columns:
@@ -430,7 +506,6 @@ class PredictionService:
 
         # Use the last sequence for prediction
         current_sequence = torch.FloatTensor(X_test[-1:])
-        num_features = current_sequence.shape[2]
 
         with torch.no_grad():
             for _ in range(steps):
@@ -440,13 +515,13 @@ class PredictionService:
                 predictions.append(float(pred_value))
 
                 # Update sequence for next prediction
-                # Shift the sequence and add the new prediction with all features
+                # Shift the sequence and add new prediction with all features
                 if current_sequence.shape[1] > 1:
                     # Get the last time step's features to use as template
                     last_features = current_sequence[:, -1:, :].clone()
 
                     # Create new features by repeating the last features
-                    # In a more sophisticated approach, you'd forecast all features
+                    # In a more sophisticated approach, forecast all features
                     new_features = last_features.clone()
 
                     # Shift sequence and append new features

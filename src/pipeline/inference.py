@@ -182,7 +182,7 @@ class TimeSeriesInference:
 
         with torch.no_grad():
             for i in range(len(X_test)):
-                sequence = torch.FloatTensor(X_test[i : i + 1]).to(device)
+                sequence = torch.FloatTensor(X_test[i: i + 1]).to(device)
                 pred = model(sequence)
                 predictions.append(pred.cpu().numpy())
 
