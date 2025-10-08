@@ -30,9 +30,7 @@ class PredictionService:
         self.preprocessor = TimeSeriesPreprocessor()
         self.loaded_models: Dict[str, Any] = {}
 
-    async def predict(
-        self, request: PredictionRequest
-    ) -> PredictionResponse:
+    async def predict(self, request: PredictionRequest) -> PredictionResponse:
         """
         Generate predictions using specified models
 
@@ -174,8 +172,9 @@ class PredictionService:
             )
 
     async def _predict_arima(
-        self, request: PredictionRequest,
-        historical_data: Optional[pd.DataFrame]
+        self,
+        request: PredictionRequest,
+        historical_data: Optional[pd.DataFrame],
     ) -> ModelPrediction:
         """Generate predictions using ARIMA model"""
         model_path = os.path.join(request.models_dir, "arima_model.pkl")
@@ -283,9 +282,7 @@ class PredictionService:
         model_path = os.path.join(request.models_dir, "lstm_model.pth")
 
         if not os.path.exists(model_path):
-            raise FileNotFoundError(
-                f"LSTM model not found at {model_path}"
-            )
+            raise FileNotFoundError(f"LSTM model not found at {model_path}")
 
         if historical_data is None:
             raise ValueError(
@@ -348,10 +345,7 @@ class PredictionService:
         # Get only future predictions
         predictions = forecast["yhat"].tail(request.steps).tolist()
         prediction_dates = (
-            forecast["ds"]
-            .tail(request.steps)
-            .dt.strftime("%Y-%m-%d")
-            .tolist()
+            forecast["ds"].tail(request.steps).dt.strftime("%Y-%m-%d").tolist()
         )
 
         # Get confidence intervals
@@ -476,9 +470,7 @@ class PredictionService:
                         if lag_num > 1:
                             new_col = f"lag_{lag_num - 1}"
                             if new_col in current_features.columns:
-                                current_features[
-                                    new_col
-                                ] = current_features[
+                                current_features[new_col] = current_features[
                                     col
                                 ]
 
