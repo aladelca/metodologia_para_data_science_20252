@@ -205,9 +205,11 @@ class TrainingService:
             "model_path": model_path,
             "metrics": {
                 "exog_vars": exog_vars,
-                "components": list(model.params.keys())
-                if hasattr(model, "params")
-                else [],
+                "components": (
+                    list(model.params.keys())
+                    if hasattr(model, "params")
+                    else []
+                ),
             },
         }
 

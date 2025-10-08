@@ -9,6 +9,15 @@ ignore_missing_imports = true
 line-length = 79
 skip-string-normalization = true
 
+[tool.isort]
+profile = "black"
+line_length = 79
+skip_gitignore = true
+
+[tool.flake8]
+max-line-length = 79
+extend-ignore = ["E203", "W503"]
+
 [tool.bandit]
 exclude_dirs = ["tests", "test"]
 skips = ["B101"]  # Skip assert_used check (común en tests)

@@ -113,3 +113,53 @@ class ErrorResponse(BaseModel):  # type: ignore
     error: str
     detail: str
     timestamp: datetime
+
+
+# Prediction models
+class PredictionRequest(BaseModel):  # type: ignore
+    """Request model for prediction API"""
+
+    model_types: List[ModelType] = Field(
+        ...,
+        description="List of model types to use for prediction",
+        example=["arima", "lstm", "catboost"],
+    )
+    steps: int = Field(
+        ...,
+        description="Number of steps to forecast",
+        example=30,
+        gt=0,
+    )
+    models_dir: Optional[str] = Field(
+        "models/trianing",
+        description="Directory containing trained models",
+    )
+    data_path: Optional[str] = Field(
+        None,
+        description="Path to historical data (required for some models)",
+    )
+
+
+class ModelPrediction(BaseModel):  # type: ignore
+    """Prediction result for a single model"""
+
+    model_type: str
+    status: str  # "success", "failed"
+    message: str
+    predictions: Optional[List[float]] = None
+    prediction_dates: Optional[List[str]] = None
+    confidence_intervals: Optional[Dict[str, List[float]]] = None
+    metrics: Optional[Dict[str, Any]] = None
+
+
+class PredictionResponse(BaseModel):  # type: ignore
+    """Response model for prediction API"""
+
+    request_id: str
+    status: str  # "success", "partial", "failed"
+    message: str
+    total_models: int
+    successful_models: int
+    failed_models: int
+    predictions: List[ModelPrediction]
+    created_at: datetime
