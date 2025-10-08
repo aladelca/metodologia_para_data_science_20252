@@ -332,7 +332,7 @@ def crear_variable_exogena_segura(
         if isinstance(periodo, str):
             variable_exogena.loc[periodo] = 1
         elif isinstance(periodo, (list, tuple)) and len(periodo) == 2:
-            variable_exogena.loc[periodo[0]: periodo[1]] = 1
+            variable_exogena.loc[periodo[0] : periodo[1]] = 1
 
     return variable_exogena
 
@@ -435,7 +435,7 @@ def create_sequences(features, target, sequence_length):
     """Creates sequences for LSTM training"""
     sequences_features, sequences_target = [], []
     for i in range(sequence_length, len(features)):
-        sequences_features.append(features[i - sequence_length: i])
+        sequences_features.append(features[i - sequence_length : i])
         sequences_target.append(target[i])
     return np.array(sequences_features), np.array(sequences_target)
 
