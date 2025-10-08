@@ -17,6 +17,6 @@ def generate_gold_data():
     gold_data.to_parquet("data/raw/raw_gold_data.parquet")
     return "success"
 
-
-generate_raw_data("SPY", "max")
+generate_raw_data("SPY","max")
 generate_gold_data()
+    

@@ -21,7 +21,7 @@ def calculate_monthly_returns(df: pd.DataFrame) -> pd.DataFrame:
     # Se agrupa por mes ('M') y se multiplican los factores
     # de crecimiento con .prod()
     # Finalmente, se resta 1 para obtener el retorno porcentual del mes
-    monthly_returns = (1 + df["Daily_Return"]).resample("M").prod() - 1
+    monthly_returns = (1 + df["Daily_Return"]).resample("ME").prod() - 1
     # Convertir a DataFrame y renombrar la columna para mayor claridad
     monthly_returns_df = monthly_returns.to_frame(name="Monthly_Return")
     return monthly_returns_df
