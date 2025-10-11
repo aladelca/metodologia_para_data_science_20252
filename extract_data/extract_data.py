@@ -40,7 +40,7 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_BUCKET = os.environ.get("RAW_DATA_BUCKET", "raw-data-stocks")
 
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
+def parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(
         description="Download Yahoo Finance stock history and upload to S3",
     )
@@ -71,7 +71,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "omitted."
         ),
     )
-    return parser.parse_args(argv)
+    return parser.parse_known_args(argv)
 
 
 def build_object_key(ticker: str) -> str:
@@ -97,8 +97,11 @@ def configure_logging() -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    args = parse_args(argv or sys.argv[1:])
     configure_logging()
+    args, unknown = parse_args(argv or sys.argv[1:])
+
+    if unknown:
+        LOGGER.info("Ignoring unknown Glue arguments: %s", unknown)
 
     LOGGER.info(
         "Downloading ticker %s with period %s", args.ticker, args.period
