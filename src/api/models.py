@@ -44,7 +44,7 @@ class TrainingRequest(BaseModel):  # type: ignore
         example="2024-01-01",
     )
     data_path: Optional[str] = Field(
-        "data/raw/raw_stock_data.parquet",
+        "src/preprocessing/data/raw/raw_stock_data.parquet",
         description="Path to the training data file",
     )
     save_dir: Optional[str] = Field(
@@ -113,3 +113,50 @@ class ErrorResponse(BaseModel):  # type: ignore
     error: str
     detail: str
     timestamp: datetime
+
+
+class PredictionRequest(BaseModel):  # type: ignore
+    """Request model for prediction API"""
+
+    model_types: List[ModelType] = Field(
+        ...,
+        description="List of model types to use for prediction",
+        example=["arima", "lstm"],
+    )
+    data_path: str = Field(
+        "src/preprocessing/data/raw/raw_stock_data.parquet",
+        description="Path to the data file for prediction",
+        example="src/preprocessing/data/raw/raw_stock_data.parquet",
+    )
+    models_dir: str = Field(
+        ...,
+        description="Directory containing saved models",
+        example="models",
+    )
+    test_start: str = Field(
+        ...,
+        description="Start date for the test period",
+        example="2024-01-01",
+    )
+    forecast_days: int = Field(
+        ...,
+        description="Number of days to forecast",
+        example=30,
+    )
+
+
+class PredictionResponse(BaseModel):  # type: ignore
+    """Response model for prediction API"""
+
+    predictions: Dict[str, Any] = Field(
+        ...,
+        description="Dictionary of predictions from all models",
+    )
+    ensemble_prediction: Optional[List[float]] = Field(
+        None,
+        description="Ensemble prediction from all models",
+    )
+    evaluation_metrics: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Evaluation metrics for the predictions",
+    )

@@ -310,7 +310,7 @@ class TimeSeriesInference:
         return metrics
 
     def predict_all_models(
-        self, data_path, models_dir, test_start, forecast_days
+        self, data_path, models_dir, test_start, forecast_days, model_types
     ):
         """
         Make predictions using all available models
@@ -320,6 +320,7 @@ class TimeSeriesInference:
             models_dir (str): Directory containing saved models
             test_start (str): Start date for test period
             forecast_days (int): Number of days to forecast
+            model_types (list): list of models to predict
 
         Returns:
             dict: Predictions from all models
@@ -332,108 +333,114 @@ class TimeSeriesInference:
         all_metrics = {}
 
         # 1. ARIMA Model
-        arima_path = os.path.join(models_dir, "arima_model.pkl")
-        if os.path.exists(arima_path):
-            try:
-                arima_model = self.load_model("arima", arima_path)
-                arima_pred = self.predict_arima(
-                    arima_model, steps=forecast_days, return_conf_int=False
-                )
-                all_predictions["arima"] = arima_pred
-                print("ARIMA predictions completed")
-            except Exception as e:
-                print(f"Error with ARIMA predictions: {e}")
+        if "arima" in model_types:
+            arima_path = os.path.join(models_dir, "arima_model.pkl")
+            if os.path.exists(arima_path):
+                try:
+                    arima_model = self.load_model("arima", arima_path)
+                    arima_pred = self.predict_arima(
+                        arima_model, steps=forecast_days, return_conf_int=False
+                    )
+                    all_predictions["arima"] = arima_pred
+                    print("ARIMA predictions completed")
+                except Exception as e:
+                    print(f"Error with ARIMA predictions: {e}")
 
         # 2. Prophet Model
-        prophet_path = os.path.join(models_dir, "prophet_model.pkl")
-        if os.path.exists(prophet_path):
-            try:
-                prophet_model = self.load_model("prophet", prophet_path)
-                prophet_forecast = self.predict_prophet(
-                    prophet_model, periods=forecast_days
-                )
-                all_predictions["prophet"] = prophet_forecast[
-                    ["ds", "yhat", "yhat_lower", "yhat_upper"]
-                ]
-                print("Prophet predictions completed")
-            except Exception as e:
-                print(f"Error with Prophet predictions: {e}")
+        if "prophet" in model_types:
+            prophet_path = os.path.join(models_dir, "prophet_model.pkl")
+            if os.path.exists(prophet_path):
+                try:
+                    prophet_model = self.load_model("prophet", prophet_path)
+                    prophet_forecast = self.predict_prophet(
+                        prophet_model, periods=forecast_days
+                    )
+                    all_predictions["prophet"] = prophet_forecast[
+                        ["ds", "yhat", "yhat_lower", "yhat_upper"]
+                    ]
+                    print("Prophet predictions completed")
+                except Exception as e:
+                    print(f"Error with Prophet predictions: {e}")
 
         # 3. Machine Learning Models
-        try:
-            # Prepare ML data
-            _, _, test_X, test_y = self.preprocessor.prepare_ml_data(
-                data, test_start=test_start
-            )
+        if "catboost" in model_types or "lightgbm" in model_types:
+            try:
+                # Prepare ML data
+                _, _, test_X, test_y = self.preprocessor.prepare_ml_data(
+                    data, test_start=test_start
+                )
 
-            # CatBoost
-            catboost_path = os.path.join(models_dir, "catboost_model")
-            if os.path.exists(catboost_path):
-                try:
-                    catboost_model = self.load_model("catboost", catboost_path)
-                    catboost_pred = self.predict_ml_models(
-                        catboost_model, test_X, "catboost"
-                    )
-                    all_predictions["catboost"] = catboost_pred
+                # CatBoost
+                if "catboost" in model_types:
+                    catboost_path = os.path.join(models_dir, "catboost_model")
+                    if os.path.exists(catboost_path):
+                        try:
+                            catboost_model = self.load_model("catboost", catboost_path)
+                            catboost_pred = self.predict_ml_models(
+                                catboost_model, test_X, "catboost"
+                            )
+                            all_predictions["catboost"] = catboost_pred
 
-                    # Evaluate if test data available
-                    if len(test_y) > 0:
-                        metrics = self.evaluate_predictions(
-                            test_y, catboost_pred, "CatBoost"
-                        )
-                        all_metrics["catboost"] = metrics
-                    print("CatBoost predictions completed")
-                except Exception as e:
-                    print(f"Error with CatBoost predictions: {e}")
+                            # Evaluate if test data available
+                            if len(test_y) > 0:
+                                metrics = self.evaluate_predictions(
+                                    test_y, catboost_pred, "CatBoost"
+                                )
+                                all_metrics["catboost"] = metrics
+                            print("CatBoost predictions completed")
+                        except Exception as e:
+                            print(f"Error with CatBoost predictions: {e}")
 
-            # LightGBM
-            lightgbm_path = os.path.join(models_dir, "lightgbm_model.pkl")
-            if os.path.exists(lightgbm_path):
-                try:
-                    lightgbm_model = self.load_model("lightgbm", lightgbm_path)
-                    lightgbm_pred = self.predict_ml_models(
-                        lightgbm_model, test_X, "lightgbm"
-                    )
-                    all_predictions["lightgbm"] = lightgbm_pred
+                # LightGBM
+                if "lightgbm" in model_types:
+                    lightgbm_path = os.path.join(models_dir, "lightgbm_model.pkl")
+                    if os.path.exists(lightgbm_path):
+                        try:
+                            lightgbm_model = self.load_model("lightgbm", lightgbm_path)
+                            lightgbm_pred = self.predict_ml_models(
+                                lightgbm_model, test_X, "lightgbm"
+                            )
+                            all_predictions["lightgbm"] = lightgbm_pred
 
-                    # Evaluate if test data available
-                    if len(test_y) > 0:
-                        metrics = self.evaluate_predictions(
-                            test_y, lightgbm_pred, "LightGBM"
-                        )
-                        all_metrics["lightgbm"] = metrics
-                    print("LightGBM predictions completed")
-                except Exception as e:
-                    print(f"Error with LightGBM predictions: {e}")
+                            # Evaluate if test data available
+                            if len(test_y) > 0:
+                                metrics = self.evaluate_predictions(
+                                    test_y, lightgbm_pred, "LightGBM"
+                                )
+                                all_metrics["lightgbm"] = metrics
+                            print("LightGBM predictions completed")
+                        except Exception as e:
+                            print(f"Error with LightGBM predictions: {e}")
 
-        except Exception as e:
-            print(f"Error preparing ML data: {e}")
+            except Exception as e:
+                print(f"Error preparing ML data: {e}")
 
         # 4. LSTM Model
-        lstm_path = os.path.join(models_dir, "lstm_model.pth")
-        if os.path.exists(lstm_path):
-            try:
-                # Prepare LSTM data
-                _, X_test, _, y_test = self.preprocessor.prepare_lstm_data(
-                    data
-                )
-
-                lstm_model = self.load_model("lstm", lstm_path)
-                lstm_pred = self.predict_lstm(
-                    lstm_model, X_test, self.preprocessor.target_scaler
-                )
-                all_predictions["lstm"] = lstm_pred
-
-                # Evaluate if test data available
-                if len(y_test) > 0:
-                    y_orig = self.preprocessor.inverse_transform_lstm(y_test)
-                    metrics = self.evaluate_predictions(
-                        y_orig, lstm_pred, "LSTM"
+        if "lstm" in model_types:
+            lstm_path = os.path.join(models_dir, "lstm_model.pth")
+            if os.path.exists(lstm_path):
+                try:
+                    # Prepare LSTM data
+                    _, X_test, _, y_test = self.preprocessor.prepare_lstm_data(
+                        data
                     )
-                    all_metrics["lstm"] = metrics
-                print("LSTM predictions completed")
-            except Exception as e:
-                print(f"Error with LSTM predictions: {e}")
+
+                    lstm_model = self.load_model("lstm", lstm_path)
+                    lstm_pred = self.predict_lstm(
+                        lstm_model, X_test, self.preprocessor.target_scaler
+                    )
+                    all_predictions["lstm"] = lstm_pred
+
+                    # Evaluate if test data available
+                    if len(y_test) > 0:
+                        y_orig = self.preprocessor.inverse_transform_lstm(y_test)
+                        metrics = self.evaluate_predictions(
+                            y_orig, lstm_pred, "LSTM"
+                        )
+                        all_metrics["lstm"] = metrics
+                    print("LSTM predictions completed")
+                except Exception as e:
+                    print(f"Error with LSTM predictions: {e}")
 
         # Store results
         self.predictions = all_predictions
