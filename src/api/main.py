@@ -11,27 +11,55 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import numpy as np
 
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))  # noqa: E402
 
+
+def convert_predictions_to_json(predictions: Dict[str, Any]) -> Dict[str, Any]:
+    json_predictions = {}
+    for model, pred in predictions.items():
+        if isinstance(pred, pd.Series):
+            if isinstance(pred.index, pd.DatetimeIndex):
+                # Convert Series with DatetimeIndex to dict of {date_str: value}
+                json_predictions[model] = {
+                    d.strftime("%Y-%m-%d"): v for d, v in pred.items()
+                }
+            else:
+                # Convert other Series to a list
+                json_predictions[model] = pred.tolist()
+        elif isinstance(pred, pd.DataFrame) and "ds" in pred.columns:
+            # Handle Prophet's DataFrame
+            df = pred.copy()
+            df["ds"] = df["ds"].dt.strftime("%Y-%m-%d")
+            json_predictions[model] = df.to_dict(orient="records")
+        elif isinstance(pred, np.ndarray):
+            json_predictions[model] = pred.tolist()
+        else:
+            json_predictions[model] = pred
+    return json_predictions
+
 from .models import (  # noqa: E402
     ErrorResponse,
     ModelType,
+    PredictionRequest,
+    PredictionResponse,
     TrainingRequest,
     TrainingResponse,
     TrainingStatusResponse,
 )
 from .training_service import TrainingService  # noqa: E402
+from pipeline.inference import TimeSeriesInference
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Time Series Model Training API",
+    title="Time Series Model Training and Prediction API",
     description=(
-        "API for training various time series models "
+        "API for training and predicting with various time series models "
         "(ARIMA, Prophet, CatBoost, LightGBM, LSTM)"
     ),
-    version="1.0.0",
+    version="1.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -45,8 +73,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize training service
+# Initialize services
 training_service = TrainingService()
+inference_service = TimeSeriesInference()
 
 
 @app.get("/", response_model=dict)
@@ -125,6 +154,52 @@ async def train_models(request: TrainingRequest) -> TrainingResponse:
     except Exception as e:
         error_response = ErrorResponse(
             error="Training failed", detail=str(e), timestamp=datetime.now()
+        )
+        raise HTTPException(status_code=500, detail=error_response.dict())
+
+
+@app.post("/predict", response_model=PredictionResponse)  # type: ignore
+async def predict_models(request: PredictionRequest) -> PredictionResponse:
+    """
+    Make predictions using trained time series models
+
+    - **model_types**: List of model types to use for prediction
+    - **data_path**: Path to the data file for prediction
+    - **models_dir**: Directory containing saved models
+    - **test_start**: Start date for the test period
+    - **forecast_days**: Number of days to forecast
+    """
+    try:
+        # Make predictions
+        predictions = inference_service.predict_all_models(
+            data_path=request.data_path,
+            models_dir=request.models_dir,
+            test_start=request.test_start,
+            forecast_days=request.forecast_days,
+            model_types=request.model_types,
+        )
+
+        # Create ensemble prediction
+        ensemble_prediction = None
+        if len(predictions) > 1:
+            ensemble_prediction = inference_service.get_ensemble_prediction(
+                predictions
+            )
+
+        # Convert predictions to JSON serializable format
+        json_predictions = convert_predictions_to_json(predictions)
+
+        return PredictionResponse(
+            predictions=json_predictions,
+            ensemble_prediction=ensemble_prediction.tolist()
+            if ensemble_prediction is not None
+            else None,
+            evaluation_metrics=inference_service.evaluation_metrics,
+        )
+
+    except Exception as e:
+        error_response = ErrorResponse(
+            error="Prediction failed", detail=str(e), timestamp=datetime.now()
         )
         raise HTTPException(status_code=500, detail=error_response.dict())
 
