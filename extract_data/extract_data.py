@@ -9,11 +9,11 @@ import sys
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Any
 
 import boto3
 import pandas as pd
-import yfinance as yf
+
+from preprocessing.extract import extract_stock_data  # noqa: E402
 
 
 def _configure_paths() -> None:
@@ -26,15 +26,6 @@ def _configure_paths() -> None:
 
 
 _configure_paths()
-
-# from preprocessing.extract import extract_stock_data  # noqa: E402
-
-
-def extract_stock_data(ticker: str, period: str) -> Any:
-    data = yf.Ticker(ticker)
-    all_data = data.history(period=period)
-    return all_data
-
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_BUCKET = os.environ.get("RAW_DATA_BUCKET", "raw-data-stocks")

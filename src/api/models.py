@@ -44,11 +44,12 @@ class TrainingRequest(BaseModel):  # type: ignore
         example="2024-01-01",
     )
     data_path: Optional[str] = Field(
-        "data/raw/raw_stock_data.parquet",
-        description="Path to the training data file",
+        "s3://raw-data-stocks/stock_data/",
+        description="Path or prefix to the training data in S3",
     )
     save_dir: Optional[str] = Field(
-        "models", description="Directory to save trained models"
+        "s3://raw-data-stocks/models/",
+        description="Target location in S3 to store trained models",
     )
 
     # Model-specific parameters

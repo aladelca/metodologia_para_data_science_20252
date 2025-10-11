@@ -1,5 +1,6 @@
 import os
 import sys
+from io import BytesIO
 
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -7,6 +8,7 @@ from statsmodels.tsa import seasonal
 
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from storage.s3_utils import S3Path, get_s3_client, is_s3_uri  # noqa: E402
 from utils import (  # noqa: E402
     adf_test,
     crear_features_completas,
@@ -50,7 +52,7 @@ class TimeSeriesPreprocessor:
             "incluir_momentum": True,
         }
 
-    def load_data(self, file_path):
+    def load_data(self, file_path: str) -> pd.DataFrame:
         """
         Load time series data from parquet file
 
@@ -60,11 +62,41 @@ class TimeSeriesPreprocessor:
         Returns:
             pd.DataFrame: Loaded data
         """
-        data = pd.read_parquet(file_path)
-        data = data.reset_index()
+        if is_s3_uri(file_path):
+            data = self._load_data_from_s3(file_path)
+        elif file_path.endswith(".csv"):
+            data = pd.read_csv(file_path)
+        else:
+            data = pd.read_parquet(file_path)
+
+        if "Date" not in data.columns:
+            data = data.reset_index()
+
+        if "Date" not in data.columns:
+            raise ValueError(
+                "Expected a 'Date' column in the dataset after loading"
+            )
+
         data["Date"] = pd.to_datetime(data["Date"])
-        data = data.set_index("Date")
+        data = data.set_index("Date").sort_index()
         return data
+
+    def _load_data_from_s3(self, uri: str) -> pd.DataFrame:
+        """Load a dataset stored in S3."""
+
+        s3_path = S3Path.from_uri(uri)
+        client = get_s3_client()
+        response = client.get_object(Bucket=s3_path.bucket, Key=s3_path.key)
+        body = response["Body"].read()
+        buffer = BytesIO(body)
+        if s3_path.key.endswith(".parquet"):
+            return pd.read_parquet(buffer)
+        if s3_path.key.endswith(".csv"):
+            return pd.read_csv(buffer)
+        raise ValueError(
+            "Unsupported file format for S3 object: "
+            f"{s3_path.key}. Expected .csv or .parquet"
+        )
 
     def check_stationarity(self, series, title=""):
         """
