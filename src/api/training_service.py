@@ -1,6 +1,6 @@
-"""
-Training service for handling model training operations
-"""
+"""Training service for handling model training operations."""
+
+from __future__ import annotations
 
 import os
 import uuid
@@ -13,7 +13,7 @@ from pipeline.training import TimeSeriesTrainer
 from preprocessing.preprocess import TimeSeriesPreprocessor
 from utils import handle_timezone_compatibility
 
-from .models import (  # noqa: E501
+from .models import (  # isort: skip
     ModelTrainingResult,
     ModelType,
     TrainingRequest,
@@ -93,8 +93,9 @@ class TrainingService:
             # Update final status
             response.status = "completed"
             response.message = (
-                f"Training completed. {response.successful_models}/"
-                f"{response.total_models} models trained successfully"
+                "Training completed. "
+                f"{response.successful_models}/{response.total_models} "
+                "models trained successfully"
             )
             response.completed_at = datetime.now()
 
@@ -225,8 +226,8 @@ class TrainingService:
         # Validate data before training
         if len(train_X) == 0 or len(train_y) == 0:
             raise ValueError(
-                f"No training data available. Train X: {len(train_X)}, "
-                f"Train y: {len(train_y)}"
+                "No training data available. "
+                f"Train X: {len(train_X)}, Train y: {len(train_y)}"
             )
 
         if train_y.isna().all():
@@ -236,23 +237,24 @@ class TrainingService:
         valid_indices = ~train_y.isna()
         train_X = train_X[valid_indices]
         train_y = train_y[valid_indices]
-        print(train_X)
+
         if len(train_X) == 0:
             raise ValueError(
                 "No valid training data after removing NaN values"
             )
 
         # Additional validation for CatBoost
-        if hasattr(train_y, 'dtype') and train_y.dtype == 'object':
+        if hasattr(train_y, "dtype") and train_y.dtype == "object":
             raise ValueError(
-                f"Target variable has object dtype, expected numeric. "
+                "Target variable has object dtype, expected numeric. "
                 f"Unique values: {train_y.unique()[:5]}"
             )
 
         if train_y.nunique() < 2:
             raise ValueError(
-                f"Target variable has only {train_y.nunique()} unique values, "
-                f"need at least 2 for regression"
+                "Target variable has only "
+                f"{train_y.nunique()} unique values, need at least 2 "
+                "for regression"
             )
 
         model_path = os.path.join(request.save_dir, "catboost_model")
@@ -290,8 +292,8 @@ class TrainingService:
         # Validate data before training
         if len(train_X) == 0 or len(train_y) == 0:
             raise ValueError(
-                f"No training data available. Train X: {len(train_X)}, "
-                f"Train y: {len(train_y)}"
+                "No training data available. "
+                f"Train X: {len(train_X)}, Train y: {len(train_y)}"
             )
 
         if train_y.isna().all():
