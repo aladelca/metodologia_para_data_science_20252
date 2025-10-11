@@ -16,19 +16,25 @@ from fastapi.responses import JSONResponse
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))  # noqa: E402
 
 from .models import (  # noqa: E402
+    AvailableModelsResponse,
+    BatchPredictionRequest,
+    BatchPredictionResponse,
     ErrorResponse,
     ModelType,
+    PredictionRequest,
+    PredictionResponse,
     TrainingRequest,
     TrainingResponse,
     TrainingStatusResponse,
 )
+from .prediction_service import PredictionService  # noqa: E402
 from .training_service import TrainingService  # noqa: E402
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Time Series Model Training API",
+    title="Time Series Model Training & Prediction API",
     description=(
-        "API for training various time series models "
+        "API for training and prediction with various time series models "
         "(ARIMA, Prophet, CatBoost, LightGBM, LSTM)"
     ),
     version="1.0.0",
@@ -45,20 +51,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize training service
+# Initialize services
 training_service = TrainingService()
+prediction_service = PredictionService()
 
 
 @app.get("/", response_model=dict)
 async def root():
     """Root endpoint with API information"""
     return {
-        "message": "Time Series Model Training API",
+        "message": "Time Series Model Training & Prediction API",
         "version": "1.0.0",
         "docs": "/docs",
         "available_models": [model.value for model in ModelType],
         "endpoints": {
             "train": "/train",
+            "predict": "/predict",
+            "predict_batch": "/predict/batch",
+            "available_models": "/models/available",
             "status": "/status/{job_id}",
             "jobs": "/jobs",
             "health": "/health",
@@ -72,8 +82,146 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now(),
-        "service": "time-series-training-api",
+        "service": "time-series-training-prediction-api",
     }
+
+
+@app.post("/predict", response_model=PredictionResponse)  # type: ignore
+async def predict_single_model(request: PredictionRequest) -> PredictionResponse:
+    """
+    Make predictions using a single trained model
+
+    - **model_type**: Type of model to use for prediction
+    - **forecast_days**: Number of days to forecast (1-365)
+    - **data_path**: Path to data file (optional for some models)
+    - **models_dir**: Directory containing trained models
+    - **include_historical**: Whether to include historical data in response
+    - **confidence_intervals**: Whether to include confidence intervals
+    """
+    try:
+        # Validate forecast days
+        if request.forecast_days < 1 or request.forecast_days > 365:
+            raise HTTPException(
+                status_code=400,
+                detail="forecast_days must be between 1 and 365",
+            )
+
+        # Validate data path if provided
+        if request.data_path and not os.path.exists(request.data_path):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Data file not found: {request.data_path}",
+            )
+
+        # Validate models directory
+        if not os.path.exists(request.models_dir):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Models directory not found: {request.models_dir}",
+            )
+
+        response = await prediction_service.predict_single_model(request)
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_response = ErrorResponse(
+            error="Prediction failed", detail=str(e), timestamp=datetime.now()
+        )
+        raise HTTPException(status_code=500, detail=error_response.dict())
+
+
+@app.post("/predict/batch", response_model=BatchPredictionResponse)  # type: ignore
+async def predict_batch_models(
+    request: BatchPredictionRequest,
+) -> BatchPredictionResponse:
+    """
+    Make predictions using multiple trained models
+
+    - **model_types**: List of model types to use for prediction
+    - **forecast_days**: Number of days to forecast (1-365)
+    - **data_path**: Path to data file (optional for some models)
+    - **models_dir**: Directory containing trained models
+    - **include_historical**: Whether to include historical data in response
+    - **confidence_intervals**: Whether to include confidence intervals
+    """
+    try:
+        # Validate model types
+        if not request.model_types:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one model type must be specified",
+            )
+
+        # Validate forecast days
+        if request.forecast_days < 1 or request.forecast_days > 365:
+            raise HTTPException(
+                status_code=400,
+                detail="forecast_days must be between 1 and 365",
+            )
+
+        # Validate data path if provided
+        if request.data_path and not os.path.exists(request.data_path):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Data file not found: {request.data_path}",
+            )
+
+        # Validate models directory
+        if not os.path.exists(request.models_dir):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Models directory not found: {request.models_dir}",
+            )
+
+        response = await prediction_service.predict_batch_models(request)
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_response = ErrorResponse(
+            error="Batch prediction failed", detail=str(e), timestamp=datetime.now()
+        )
+        raise HTTPException(status_code=500, detail=error_response.dict())
+
+
+@app.get("/models/available", response_model=AvailableModelsResponse)  # type: ignore
+async def get_available_models(
+    models_dir: str = "models",
+) -> AvailableModelsResponse:
+    """
+    Get information about available trained models
+
+    - **models_dir**: Directory to check for trained models
+    """
+    try:
+        if not os.path.exists(models_dir):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Models directory not found: {models_dir}",
+            )
+
+        available_models = prediction_service.check_model_availability(models_dir)
+        total_available = sum(1 for model in available_models if model.available)
+
+        return AvailableModelsResponse(
+            models_dir=models_dir,
+            available_models=available_models,
+            total_available=total_available,
+            timestamp=datetime.now(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_response = ErrorResponse(
+            error="Failed to check available models",
+            detail=str(e),
+            timestamp=datetime.now(),
+        )
+        raise HTTPException(status_code=500, detail=error_response.dict())
 
 
 @app.post("/train", response_model=TrainingResponse)  # type: ignore
