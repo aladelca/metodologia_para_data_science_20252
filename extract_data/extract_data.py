@@ -28,7 +28,7 @@ _configure_paths()
 from preprocessing.extract import extract_stock_data  # noqa: E402
 
 LOGGER = logging.getLogger(__name__)
-DEFAULT_BUCKET = os.environ.get("RAW_DATA_BUCKET", "raw-data")
+DEFAULT_BUCKET = os.environ.get("RAW_DATA_BUCKET", "raw-data-stocks")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
