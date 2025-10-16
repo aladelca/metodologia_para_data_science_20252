@@ -30,7 +30,8 @@ RUN pip install --upgrade pip setuptools wheel \
 
 COPY . .
 
-ENV PYTHONPATH=/app
+# Ensure both project root and src/ are on the Python path
+ENV PYTHONPATH=/app:/app/src
 
 RUN useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
