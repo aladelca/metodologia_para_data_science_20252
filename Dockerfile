@@ -17,6 +17,8 @@ RUN apt-get update \
         libgomp1 \
         libgl1 \
         libglib2.0-0 \
+        curl \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
