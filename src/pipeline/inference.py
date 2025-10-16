@@ -1,21 +1,16 @@
 import os
-import sys
+import pickle  # nosec B403
+import warnings
+from datetime import timedelta
 
-# Add src directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+import joblib
+import numpy as np
+import pandas as pd
+import torch
+from catboost import CatBoostRegressor
 
-import pickle  # noqa: E402  # nosec B403
-import warnings  # noqa: E402
-from datetime import timedelta  # noqa: E402
-
-import joblib  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-import torch  # noqa: E402
-from catboost import CatBoostRegressor  # noqa: E402
-
-from preprocessing.preprocess import TimeSeriesPreprocessor  # noqa: E402
-from utils import LSTMModel, calculate_metrics  # noqa: E402
+from src.preprocessing.preprocess import TimeSeriesPreprocessor
+from src.utils import LSTMModel, calculate_metrics
 
 warnings.filterwarnings("ignore")
 

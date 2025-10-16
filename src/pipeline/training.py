@@ -1,26 +1,22 @@
 import os
-import sys
-from typing import Any  # noqa: E402
+import pickle  # nosec B403
+import warnings
+from typing import Any
 
-# Add src directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-import pickle  # noqa: E402  # nosec B403
-import warnings  # noqa: E402
+import joblib
+import pandas as pd
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from catboost import CatBoostRegressor
+from lightgbm import LGBMRegressor
+from prophet import Prophet
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from torch.utils.data import DataLoader, TensorDataset
 
-import joblib  # noqa: E402
-import pandas as pd  # noqa: E402
-import torch  # noqa: E402
-import torch.nn as nn  # noqa: E402
-import torch.optim as optim  # noqa: E402
-from catboost import CatBoostRegressor  # noqa: E402
-from lightgbm import LGBMRegressor  # noqa: E402
-from prophet import Prophet  # noqa: E402
-from statsmodels.tsa.arima.model import ARIMA  # noqa: E402
-from statsmodels.tsa.statespace.sarimax import SARIMAX  # noqa: E402
-from torch.utils.data import DataLoader, TensorDataset  # noqa: E402
-
-from preprocessing.preprocess import TimeSeriesPreprocessor  # noqa: E402
-from utils import LSTMModel, auto_arima_manual  # noqa: E402
+from src.preprocessing.preprocess import TimeSeriesPreprocessor
+from src.utils import LSTMModel, auto_arima_manual
 
 warnings.filterwarnings("ignore")
 

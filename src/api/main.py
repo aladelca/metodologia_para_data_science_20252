@@ -2,8 +2,6 @@
 FastAPI application for model training
 """
 
-import os
-import sys
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -12,17 +10,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Add src directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))  # noqa: E402
-
-from .models import (  # noqa: E402
+# Local imports via package
+from .models import (
     ErrorResponse,
     ModelType,
     TrainingRequest,
     TrainingResponse,
     TrainingStatusResponse,
 )
-from .training_service import TrainingService  # noqa: E402
+from .training_service import TrainingService
 
 # Initialize FastAPI app
 app = FastAPI(

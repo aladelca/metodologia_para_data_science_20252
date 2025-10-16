@@ -1,15 +1,11 @@
-import os
-import sys
 from io import BytesIO
 
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from statsmodels.tsa import seasonal
 
-# Add src directory to path
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from storage.s3_utils import S3Path, get_s3_client, is_s3_uri  # noqa: E402
-from utils import (  # noqa: E402
+from src.storage.s3_utils import S3Path, get_s3_client, is_s3_uri
+from src.utils import (
     adf_test,
     crear_features_completas,
     crear_variable_exogena_segura,
