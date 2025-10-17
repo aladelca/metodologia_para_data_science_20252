@@ -36,8 +36,10 @@ ENV PYTHONPATH=/app:/app/src
 RUN useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
 
+RUN chmod +x scripts/entrypoint.sh scripts/train_once.py || true
+
 USER appuser
 
 EXPOSE ${PORT}
 
-CMD ["sh", "-c", "uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT}"]
+ENTRYPOINT ["/bin/sh", "/app/scripts/entrypoint.sh"]
