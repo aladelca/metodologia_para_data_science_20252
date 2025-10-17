@@ -19,6 +19,7 @@ from src.storage.s3_utils import (
     build_s3_uri,
     ensure_trailing_slash,
     is_s3_uri,
+    iter_objects,
     latest_object_key,
     object_exists,
 )
@@ -106,6 +107,9 @@ class TrainingService:
             if data_prefix_env
             else ""
         )
+        # Prefer a specific ticker when resolving the latest object under
+        # the training data prefix (e.g., 'spy' to pick stock_data/spy_*.csv).
+        self.data_ticker = os.environ.get("TRAINING_DATA_TICKER", "spy")
         self.model_bucket = os.environ.get(
             "TRAINING_MODEL_BUCKET", "raw-data-stocks"
         )
@@ -218,7 +222,25 @@ class TrainingService:
             s3_path = S3Path.from_uri(source)
             s3_location = build_s3_uri(s3_path.bucket, s3_path.key)
             if source.endswith("/"):
-                key = latest_object_key(s3_path.bucket, s3_path.key)
+                # If a preferred ticker is set, try to pick the latest object
+                # matching <prefix><ticker>_*. Otherwise, fall back to any
+                # latest object under the prefix.
+                key = None
+                if self.data_ticker:
+                    prefix = ensure_trailing_slash(s3_path.key)
+                    ticker_prefix = f"{prefix}{self.data_ticker.lower()}_"
+                    latest_time = None
+                    for obj in iter_objects(s3_path.bucket, prefix):
+                        _key = obj.get("Key", "")
+                        if not _key.startswith(ticker_prefix):
+                            continue
+                        lm = obj.get("LastModified")
+                        if latest_time is None or (lm and lm > latest_time):
+                            latest_time = lm
+                            key = _key
+
+                if not key:
+                    key = latest_object_key(s3_path.bucket, s3_path.key)
                 if not key:
                     raise FileNotFoundError(
                         f"No objects found under {s3_location}"
