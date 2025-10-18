@@ -7,11 +7,16 @@ ENV PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-COPY requirements.txt ${LAMBDA_TASK_ROOT}/
+COPY requirements-predict.txt ${LAMBDA_TASK_ROOT}/requirements-predict.txt
 
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --no-cache-dir \
-         -r ${LAMBDA_TASK_ROOT}/requirements.txt
+         -r ${LAMBDA_TASK_ROOT}/requirements-predict.txt \
+         -t ${LAMBDA_TASK_ROOT} \
+    && python -m pip install --no-cache-dir \
+         --index-url https://download.pytorch.org/whl/cpu \
+         torch==2.2.2+cpu \
+         -t ${LAMBDA_TASK_ROOT}
 
 COPY . ${LAMBDA_TASK_ROOT}
 

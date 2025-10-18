@@ -33,7 +33,7 @@ DATA_TICKER = os.environ.get("TRAINING_DATA_TICKER", "spy500")
 
 MODEL_SUFFIX = {
     "arima": "arima_model.pkl",
-    "prophet": "prophet_model.pkl",
+    # "prophet": "prophet_model.pkl",  # Prophet not included in Lambda image
     "catboost": "catboost_model.cbm",
     "lightgbm": "lightgbm_model.pkl",
     "lstm": "lstm_model.pth",
@@ -137,30 +137,7 @@ def _serialize_predictions(
     model_type: str, preds: Any, start_date: str, end_date: str
 ) -> Dict[str, Any]:
     """Normalize predictions to a JSON-serializable structure."""
-    if model_type == "prophet" and isinstance(preds, pd.DataFrame):
-        out = preds[["ds", "yhat"]].copy()
-        if "yhat_lower" in preds.columns and "yhat_upper" in preds.columns:
-            out["yhat_lower"] = preds["yhat_lower"]
-            out["yhat_upper"] = preds["yhat_upper"]
-        # Bound to requested window if necessary
-        mask = (out["ds"] >= pd.to_datetime(start_date)) & (
-            out["ds"] <= pd.to_datetime(end_date)
-        )
-        out = out.loc[mask]
-        return {
-            "dates": [d.date().isoformat() for d in out["ds"].tolist()],
-            "yhat": out["yhat"].astype(float).tolist(),
-            "yhat_lower": out.get("yhat_lower", pd.Series(dtype=float))
-            .astype(float)
-            .tolist()
-            if "yhat_lower" in out
-            else None,
-            "yhat_upper": out.get("yhat_upper", pd.Series(dtype=float))
-            .astype(float)
-            .tolist()
-            if "yhat_upper" in out
-            else None,
-        }
+    # Prophet not supported in this Lambda image (to avoid heavy deps)
 
     # For numeric arrays/Series, attach business date index
     dates = _business_date_index(start_date, end_date)
@@ -239,8 +216,7 @@ def handler(
                 preds = inf.predict_arima(
                     model, steps=steps, return_conf_int=False
                 )
-            elif model_type == "prophet":
-                preds = inf.predict_prophet(model, periods=steps, freq="B")
+            # Prophet not supported in this Lambda image
             elif model_type in ("catboost", "lightgbm"):
                 # Prepare features for the requested window
                 _, _, test_X, test_y = preprocessor.prepare_ml_data(
