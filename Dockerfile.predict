@@ -11,8 +11,7 @@ COPY requirements.txt ${LAMBDA_TASK_ROOT}/
 
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --no-cache-dir \
-         -r ${LAMBDA_TASK_ROOT}/requirements.txt \
-         -t ${LAMBDA_TASK_ROOT}
+         -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
 COPY . ${LAMBDA_TASK_ROOT}
 
