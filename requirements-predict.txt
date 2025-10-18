@@ -4,5 +4,4 @@ numpy==1.26.4
 pandas==2.1.4
 scikit-learn==1.3.2
 statsmodels==0.14.1
-catboost==1.2.5
 # torch is installed separately from CPU index in Dockerfile.predict
