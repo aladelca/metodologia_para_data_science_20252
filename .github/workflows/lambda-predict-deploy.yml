@@ -60,12 +60,3 @@ jobs:
           aws lambda update-function-code \
             --function-name "$LAMBDA_FUNCTION_NAME" \
             --image-uri "$IMAGE_URI"
-
-      - name: Publish new version and update alias (optional)
-        if: ${{ !!secrets.LAMBDA_ALIAS }}
-        run: |
-          VERSION=$(aws lambda publish-version --function-name "$LAMBDA_FUNCTION_NAME" --query 'Version' --output text)
-          aws lambda update-alias \
-            --function-name "$LAMBDA_FUNCTION_NAME" \
-            --name "${{ secrets.LAMBDA_ALIAS }}" \
-            --function-version "$VERSION"
