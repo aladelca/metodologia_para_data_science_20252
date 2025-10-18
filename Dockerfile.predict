@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.4
+
+FROM public.ecr.aws/lambda/python:3.11 as base
+
+# Avoid cache, set working directory to Lambda task root
+ENV PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY requirements.txt ${LAMBDA_TASK_ROOT}/
+
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && python -m pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt -t ${LAMBDA_TASK_ROOT}
+
+COPY . ${LAMBDA_TASK_ROOT}
+
+# Ensure project root and src/ are importable
+ENV PYTHONPATH=${LAMBDA_TASK_ROOT}:${LAMBDA_TASK_ROOT}/src
+
+# Default environment for data/model locations (overridable per-function)
+ENV PREDICT_MODEL_BUCKET=raw-data-stocks \
+    PREDICT_MODEL_PREFIX=models \
+    TRAINING_DATA_BUCKET=raw-data-stocks \
+    TRAINING_DATA_PREFIX=stock_data \
+    TRAINING_DATA_TICKER=spy500
+
+# Set the Lambda handler
+CMD ["src.predict.lambda_app.handler"]

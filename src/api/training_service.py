@@ -109,7 +109,7 @@ class TrainingService:
         )
         # Prefer a specific ticker when resolving the latest object under
         # the training data prefix (e.g., 'spy' to pick stock_data/spy_*.csv).
-        self.data_ticker = os.environ.get("TRAINING_DATA_TICKER", "spy")
+        self.data_ticker = os.environ.get("TRAINING_DATA_TICKER", "spy500")
         self.model_bucket = os.environ.get(
             "TRAINING_MODEL_BUCKET", "raw-data-stocks"
         )
